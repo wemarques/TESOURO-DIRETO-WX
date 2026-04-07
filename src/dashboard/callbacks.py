@@ -8,6 +8,17 @@ from dash import Input, Output, callback, html, no_update
 
 from src.dashboard.layouts import NOMES_FAMILIA
 
+MAPA_INDEXADOR = {
+    "Tesouro Selic": "Selic",
+    "Tesouro Prefixado": "Prefixado",
+    "Tesouro Prefixado com Juros Semestrais": "Prefixado",
+    "Tesouro IPCA+": "IPCA",
+    "Tesouro IPCA+ com Juros Semestrais": "IPCA",
+    "Tesouro IGPM+ com Juros Semestrais": "IGP-M",
+    "Tesouro Educa+": "IPCA",
+    "Tesouro Renda+ Aposentadoria Extra": "IPCA",
+}
+
 
 def registrar_callbacks(app, df_ranking: pd.DataFrame, df_historico: pd.DataFrame):
     """Registra todos os callbacks no app Dash."""
@@ -23,6 +34,10 @@ def registrar_callbacks(app, df_ranking: pd.DataFrame, df_historico: pd.DataFram
 
     TOOLTIPS_COLUNAS = {
         "tipo_titulo": "Nome da familia do titulo do Tesouro Direto",
+        "indexador": (
+            "Indice ao qual o rendimento esta atrelado. "
+            "Prefixado = taxa fixa. Selic/IPCA/IGP-M = taxa + variacao do indice"
+        ),
         "data_vencimento": "Data em que o titulo expira e o governo paga o valor de face",
         "bucket_prazo": (
             "Faixa de prazo — Curto (<=2a), Intermediario (2-5a), "
@@ -108,9 +123,13 @@ def registrar_callbacks(app, df_ranking: pd.DataFrame, df_historico: pd.DataFram
             template="plotly_white",
         )
 
+        # Derivar coluna indexador
+        df["indexador"] = df["tipo_titulo"].map(MAPA_INDEXADOR).fillna("—")
+
         # Tabela — coluna "score" mostra o score selecionado
         colunas_tabela = [
             ("tipo_titulo", "Titulo"),
+            ("indexador", "Indexador"),
             ("data_vencimento", "Vencimento"),
             ("bucket_prazo", "Bucket"),
             ("taxa_compra_manha", "Taxa Compra (%)"),
@@ -226,6 +245,7 @@ def registrar_callbacks(app, df_ranking: pd.DataFrame, df_historico: pd.DataFram
 
         ultimo = df.iloc[-1]
         # Card de informacoes
+        indexador = MAPA_INDEXADOR.get(titulo, "—")
         card_body = dbc.CardBody(
             [
                 html.H5(titulo, className="card-title"),
@@ -233,6 +253,7 @@ def registrar_callbacks(app, df_ranking: pd.DataFrame, df_historico: pd.DataFram
                 _info_row("Familia", NOMES_FAMILIA.get(
                     str(ultimo["familia_normalizada"]), str(ultimo["familia_normalizada"])
                 )),
+                _info_row("Indexador", indexador),
                 _info_row("Vencimento", pd.Timestamp(ultimo["data_vencimento"]).strftime("%d/%m/%Y")),
                 _info_row(
                     "Prazo",
