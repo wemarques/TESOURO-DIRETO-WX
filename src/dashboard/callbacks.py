@@ -30,6 +30,7 @@ def registrar_callbacks(app, df_ranking: pd.DataFrame, df_historico: pd.DataFram
     SCORE_LABELS = {
         "score_a": "Score A (base)",
         "score_b": "Score B (risco)",
+        "score_c": "Score C (curva)",
     }
 
     TOOLTIPS_COLUNAS = {
@@ -65,6 +66,10 @@ def registrar_callbacks(app, df_ranking: pd.DataFrame, df_historico: pd.DataFram
         "score_b": (
             "Nota ajustada por risco (0 a 1) — penaliza titulos com prazo muito longo. "
             "Carry 35% + RV 30% + Liquidez 15% + Risco 20%"
+        ),
+        "score_c": (
+            "Nota por residuo de curva NSS (0 a 1) — identifica titulos que pagam "
+            "mais que a curva teorica sugere. Carry 30% + Residuo 40% + Rolldown 15% + Liquidez 15%"
         ),
         "posicao_celula": (
             "Posicao do titulo no ranking dentro do seu grupo comparavel (familia + prazo)"
@@ -223,6 +228,65 @@ def registrar_callbacks(app, df_ranking: pd.DataFrame, df_historico: pd.DataFram
             template="plotly_white",
             hovermode="x unified",
         )
+        return fig
+
+    # =========================================================================
+    # CURVA NSS
+    # =========================================================================
+
+    @app.callback(
+        Output("curva-nss-chart", "figure"),
+        Input("curva-grupo-dropdown", "value"),
+        Input("curva-opcoes-checklist", "value"),
+    )
+    def atualizar_curva_nss(grupo: str | None, opcoes: list[str] | None):
+        if not grupo or not opcoes:
+            return go.Figure().update_layout(
+                title="Selecione um grupo analitico",
+                template="plotly_white",
+            )
+
+        from src.analytics.curva import obter_curva_snapshot
+
+        resultado = obter_curva_snapshot(df_historico, grupo)
+        fig = go.Figure()
+
+        if resultado is None:
+            fig.update_layout(
+                title=f"Curva indisponivel para {grupo} (pontos insuficientes)",
+                template="plotly_white",
+                height=450,
+            )
+            return fig
+
+        if "pontos" in opcoes:
+            fig.add_trace(go.Scatter(
+                x=resultado["prazos_obs"],
+                y=resultado["taxas_obs"],
+                mode="markers",
+                name="Taxas observadas",
+                marker=dict(size=10, color="#2196F3"),
+            ))
+
+        if "curva" in opcoes:
+            fig.add_trace(go.Scatter(
+                x=resultado["prazos_plot"],
+                y=resultado["taxas_plot"],
+                mode="lines",
+                name="Curva NSS ajustada",
+                line=dict(color="#FF5722", width=2.5),
+            ))
+
+        params = resultado["params"]
+        fig.update_layout(
+            title=f"Estrutura a Termo — {grupo} (RMSE: {params.rmse:.4f})",
+            xaxis_title="Prazo (anos)",
+            yaxis_title="Taxa (% a.a.)",
+            template="plotly_white",
+            height=450,
+            hovermode="x unified",
+        )
+
         return fig
 
     # =========================================================================

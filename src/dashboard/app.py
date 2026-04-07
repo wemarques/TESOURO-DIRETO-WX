@@ -28,6 +28,7 @@ total_titulos = len(df_ranking)
 total_registros = len(df_historico)
 familias = sorted(df_ranking["familia_normalizada"].unique().tolist())
 titulos_unicos = sorted(df_historico["tipo_titulo"].unique().tolist())
+grupos_analiticos = sorted(df_historico["grupo_analitico"].unique().tolist())
 
 # === App Dash ===
 app = dash.Dash(
@@ -57,7 +58,7 @@ app.layout = html.Div(
 )
 def renderizar_pagina(pathname: str):
     if pathname == "/series":
-        return pagina_series(familias, titulos_unicos)
+        return pagina_series(familias, titulos_unicos, grupos_analiticos)
     if pathname == "/titulo":
         return pagina_titulo(titulos_unicos)
     return pagina_ranking(familias)

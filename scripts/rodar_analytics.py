@@ -28,31 +28,46 @@ def main():
     from src.analytics.metricas import calcular_metricas
     df = calcular_metricas(df)
 
-    # 3. Calcular scores
+    # 3. Ajustar curvas NSS por grupo (apenas snapshot mais recente)
+    print("  → Ajustando curvas Nelson-Siegel-Svensson...")
+    from src.analytics.curva import calcular_curva_por_grupo
+    data_mais_recente = df["data_base"].max()
+    df = calcular_curva_por_grupo(df, data_referencia=data_mais_recente)
+    n_curva = df["curva_ajustada"].sum()
+    n_total = len(df[df["data_base"] == df["data_base"].max()])
+    print(f"  ✓ Curvas ajustadas — {n_curva:,} registros com curva".replace(",", "."))
+
+    # 4. Calcular scores
     print("  → Calculando scores...")
-    from src.analytics.score import calcular_score_a, calcular_score_b
+    from src.analytics.score import calcular_score_a, calcular_score_b, calcular_score_c
     df = calcular_score_a(df)
     df = calcular_score_b(df)
+    df = calcular_score_c(df)
 
-    # 4. Gerar ranking (usa score_a para posições, mas inclui score_b)
+    # 5. Gerar ranking (usa score_a para posições, inclui score_b e score_c)
     print("  → Gerando rankings...")
     from src.analytics.ranking import gerar_ranking
     ranking = gerar_ranking(df)
 
-    # Incluir score_b no ranking
-    if "score_b" not in ranking.columns:
-        snapshot_date = ranking["data_base"].iloc[0]
-        score_b_map = df.loc[
-            df["data_base"] == snapshot_date,
-            ["tipo_titulo", "data_vencimento", "score_b"],
-        ]
-        ranking = ranking.merge(score_b_map, on=["tipo_titulo", "data_vencimento"], how="left")
+    # Incluir score_b e score_c no ranking
+    snapshot_date = ranking["data_base"].iloc[0]
+    extras = df.loc[
+        df["data_base"] == snapshot_date,
+        ["tipo_titulo", "data_vencimento", "score_b", "score_c"],
+    ]
+    for col in ["score_b", "score_c"]:
+        if col not in ranking.columns:
+            ranking = ranking.merge(
+                extras[["tipo_titulo", "data_vencimento", col]],
+                on=["tipo_titulo", "data_vencimento"],
+                how="left",
+            )
 
-    # 5. Salvar
+    # 6. Salvar
     df.to_parquet(DATA_PROCESSED / "base_analitica.parquet", index=False)
     ranking.to_parquet(DATA_OUTPUTS / "ranking_atual.parquet", index=False)
     ranking.to_csv(DATA_OUTPUTS / "ranking_atual.csv", index=False)
-    print(f"  ✓ Ranking salvo — {len(ranking)} títulos ranqueados (Score A + Score B)")
+    print(f"  ✓ Ranking salvo — {len(ranking)} títulos (Score A + B + C)")
 
     print("\n✅ Analytics concluído.\n")
 

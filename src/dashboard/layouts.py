@@ -96,6 +96,10 @@ def pagina_ranking(familias: list[str]):
                                         "label": "Score B (ajustado por risco)",
                                         "value": "score_b",
                                     },
+                                    {
+                                        "label": "Score C (curva NSS)",
+                                        "value": "score_c",
+                                    },
                                 ],
                                 value="score_a",
                                 clearable=False,
@@ -178,10 +182,11 @@ def pagina_ranking(familias: list[str]):
     )
 
 
-def pagina_series(familias: list[str], titulos: list[str]):
+def pagina_series(familias: list[str], titulos: list[str], grupos: list[str]):
     """Layout da pagina de series temporais."""
     opcoes_familia = [{"label": NOMES_FAMILIA.get(f, f), "value": f} for f in sorted(familias)]
     opcoes_titulos = [{"label": t, "value": t} for t in sorted(titulos)]
+    opcoes_grupos = [{"label": g, "value": g} for g in sorted(grupos)]
 
     return dbc.Container(
         [
@@ -232,6 +237,42 @@ def pagina_series(familias: list[str], titulos: list[str]):
                 className="mb-3",
             ),
             dcc.Graph(id="series-line-chart"),
+            html.Hr(),
+            html.H4("Curva Teorica Nelson-Siegel-Svensson", className="mb-3 mt-4"),
+            dbc.Row(
+                [
+                    dbc.Col(
+                        [
+                            html.Label("Grupo Analitico", className="fw-bold"),
+                            dcc.Dropdown(
+                                id="curva-grupo-dropdown",
+                                options=opcoes_grupos,
+                                value=opcoes_grupos[0]["value"] if opcoes_grupos else None,
+                                clearable=False,
+                            ),
+                        ],
+                        md=4,
+                    ),
+                    dbc.Col(
+                        [
+                            html.Label("Exibir", className="fw-bold"),
+                            dcc.Checklist(
+                                id="curva-opcoes-checklist",
+                                options=[
+                                    {"label": " Curva teorica", "value": "curva"},
+                                    {"label": " Pontos observados", "value": "pontos"},
+                                ],
+                                value=["curva", "pontos"],
+                                inline=True,
+                                className="mt-1",
+                            ),
+                        ],
+                        md=4,
+                    ),
+                ],
+                className="mb-3",
+            ),
+            dcc.Graph(id="curva-nss-chart"),
         ],
         fluid=True,
     )
