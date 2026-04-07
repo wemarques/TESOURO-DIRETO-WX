@@ -99,6 +99,8 @@ def executar_pipeline():
         [python, str(scripts_dir / "rodar_ingestao.py")],
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         timeout=600,
         cwd=str(scripts_dir.parent),
     )
@@ -116,6 +118,8 @@ def executar_pipeline():
         [python, str(scripts_dir / "rodar_analytics.py")],
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         timeout=300,
         cwd=str(scripts_dir.parent),
     )

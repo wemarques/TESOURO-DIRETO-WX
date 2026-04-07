@@ -157,16 +157,18 @@ def baixar_csv(
     # Calcular hash
     hash_sha256 = hashlib.sha256(conteudo).hexdigest()
 
-    # Detectar data de referência lendo última linha do CSV
+    # Detectar data de referência lendo a penúltima e última linhas do CSV
+    # O CSV pode estar ordenado cronologicamente (asc ou desc), então
+    # extraímos data_base da primeira e última linha de dados e pegamos a maior
     try:
         linhas = conteudo.decode("latin-1").strip().split("\n")
-        ultima_linha = linhas[-1]
-        # Campo data_base está na 3a coluna (índice 2)
-        campos = ultima_linha.split(";")
-        data_ref_raw = campos[2].strip()
-        # Converter DD/MM/YYYY para YYYY-MM-DD
-        partes = data_ref_raw.split("/")
-        data_referencia = f"{partes[2]}-{partes[1]}-{partes[0]}"
+        datas_candidatas = []
+        for linha_idx in [1, -1]:  # Primeira e última linha de dados
+            campos = linhas[linha_idx].split(";")
+            data_ref_raw = campos[2].strip()
+            partes = data_ref_raw.split("/")
+            datas_candidatas.append(f"{partes[2]}-{partes[1]}-{partes[0]}")
+        data_referencia = max(datas_candidatas)
     except Exception:
         data_referencia = datetime.now().strftime("%Y-%m-%d")
         logger.warning("Nao foi possivel detectar data_referencia, usando hoje")
