@@ -20,7 +20,11 @@ def main():
         print("    Coloque o arquivo precotaxatesourodireto.csv nessa pasta.")
         return
 
-    arquivo = csvs[-1]
+    # Priorizar o arquivo oficial de preços e taxas
+    arquivo = next(
+        (c for c in csvs if "precotaxatesourodireto" in c.name.lower()),
+        csvs[-1],
+    )
     print(f"  ✓ Arquivo encontrado: {arquivo.name}")
 
     # 2. Validar
