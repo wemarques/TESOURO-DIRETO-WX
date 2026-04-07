@@ -4,7 +4,7 @@ import dash_bootstrap_components as dbc
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from dash import Input, Output, State, callback, html
+from dash import Input, Output, callback, html, no_update
 
 from src.dashboard.layouts import NOMES_FAMILIA
 
@@ -21,15 +21,57 @@ def registrar_callbacks(app, df_ranking: pd.DataFrame, df_historico: pd.DataFram
         "score_b": "Score B (risco)",
     }
 
+    TOOLTIPS_COLUNAS = {
+        "tipo_titulo": "Nome da familia do titulo do Tesouro Direto",
+        "data_vencimento": "Data em que o titulo expira e o governo paga o valor de face",
+        "bucket_prazo": (
+            "Faixa de prazo — Curto (<=2a), Intermediario (2-5a), "
+            "Longo (5-15a), Ultralongo (>15a)"
+        ),
+        "taxa_compra_manha": (
+            "Taxa anual que o investidor recebe se comprar e segurar ate o vencimento"
+        ),
+        "carry": (
+            "Quanto esse titulo paga acima da mediana do seu grupo. "
+            "Positivo = acima da media dos pares"
+        ),
+        "rv_zscore": (
+            "Valor Relativo — quantos desvios-padrao a taxa esta acima ou abaixo "
+            "da media do grupo. Quanto maior, mais atrativo"
+        ),
+        "liquidez_norm": (
+            "Facilidade de compra/venda, baseada no spread. "
+            "Perto de 1 = facil de negociar, perto de 0 = dificil"
+        ),
+        "score_a": (
+            "Nota de oportunidade (0 a 1) combinando "
+            "Carry 40% + Valor Relativo 40% + Liquidez 20%"
+        ),
+        "score_b": (
+            "Nota ajustada por risco (0 a 1) — penaliza titulos com prazo muito longo. "
+            "Carry 35% + RV 30% + Liquidez 15% + Risco 20%"
+        ),
+        "posicao_celula": (
+            "Posicao do titulo no ranking dentro do seu grupo comparavel (familia + prazo)"
+        ),
+        "posicao_global": (
+            "Posicao no ranking geral — apenas informativo, "
+            "nao use para decisao entre familias diferentes"
+        ),
+    }
+
     @app.callback(
         Output("ranking-bar-chart", "figure"),
         Output("ranking-tabela", "data"),
         Output("ranking-tabela", "columns"),
+        Output("ranking-tabela", "tooltip_header"),
         Input("ranking-score-dropdown", "value"),
         Input("ranking-familia-dropdown", "value"),
         Input("ranking-ordenar-dropdown", "value"),
     )
     def atualizar_ranking(score_col: str, familia: str, ordenar_por: str):
+        if not score_col or not familia or not ordenar_por:
+            return no_update, no_update, no_update, no_update
         df = df_ranking.copy()
         if familia != "TODAS":
             df = df[df["familia_normalizada"] == familia]
@@ -81,12 +123,18 @@ def registrar_callbacks(app, df_ranking: pd.DataFrame, df_historico: pd.DataFram
         ]
         cols_dash = [{"name": label, "id": col_id} for col_id, label in colunas_tabela]
 
+        # Tooltip por coluna — mapeia col_id para texto explicativo
+        tooltip_header = {
+            col_id: {"value": TOOLTIPS_COLUNAS.get(col_id, label), "type": "text"}
+            for col_id, label in colunas_tabela
+        }
+
         df_tab = df[[c for c, _ in colunas_tabela]].copy()
         df_tab["data_vencimento"] = df_tab["data_vencimento"].dt.strftime("%d/%m/%Y")
         for col in ["taxa_compra_manha", "carry", "rv_zscore", "liquidez_norm", score_col]:
             df_tab[col] = df_tab[col].round(4)
 
-        return fig, df_tab.to_dict("records"), cols_dash
+        return fig, df_tab.to_dict("records"), cols_dash, tooltip_header
 
     # =========================================================================
     # SERIES TEMPORAIS

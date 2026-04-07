@@ -142,9 +142,26 @@ def pagina_ranking(familias: list[str]):
                 id="ranking-tabela",
                 page_size=20,
                 sort_action="native",
+                tooltip_delay=0,
+                tooltip_duration=None,
+                css=[
+                    {
+                        "selector": ".dash-table-tooltip",
+                        "rule": (
+                            "background-color: #333; color: white; "
+                            "max-width: 350px; padding: 8px; "
+                            "border-radius: 4px; font-size: 12px;"
+                        ),
+                    }
+                ],
                 style_table={"overflowX": "auto"},
                 style_cell={"textAlign": "left", "padding": "8px", "fontSize": "13px"},
-                style_header={"fontWeight": "bold", "backgroundColor": "#f8f9fa"},
+                style_header={
+                    "fontWeight": "bold",
+                    "backgroundColor": "#f8f9fa",
+                    "textDecoration": "underline dotted",
+                    "cursor": "help",
+                },
                 style_data_conditional=[
                     {
                         "if": {"filter_query": "{score} >= 0.6", "column_id": "score"},
