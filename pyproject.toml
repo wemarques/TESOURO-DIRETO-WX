@@ -1,0 +1,41 @@
+[project]
+name = "tesouro-direto-wx"
+version = "0.1.0"
+description = "Sistema analítico para identificação de oportunidades em títulos do Tesouro Direto brasileiro"
+requires-python = ">=3.12"
+dependencies = [
+    "pandas>=2.2",
+    "numpy>=1.26",
+    "plotly>=5.22",
+    "dash>=2.17",
+    "dash-bootstrap-components>=1.6",
+    "scipy>=1.13",
+    "requests>=2.31",
+    "python-dateutil>=2.9",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.2",
+    "black>=24.4",
+    "ruff>=0.4",
+    "isort>=5.13",
+    "ipykernel>=6.29",
+]
+
+[tool.black]
+line-length = 100
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+
+[tool.isort]
+profile = "black"
+line_length = 100
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]

@@ -1,0 +1,47 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+
+# Ambientes virtuais
+.venv/
+venv/
+env/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Dados - NÃO versionar CSVs grandes
+data/raw/*.csv
+data/interim/**/*.csv
+data/processed/**/*.csv
+data/outputs/**/*.csv
+data/audit/**/*.log
+data/audit/**/*.json
+
+# Manter estrutura de pastas
+!data/raw/.gitkeep
+!data/interim/padronizado/.gitkeep
+!data/interim/enriquecido/.gitkeep
+!data/processed/.gitkeep
+!data/outputs/.gitkeep
+!data/audit/.gitkeep
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets
+.env
+*.key
