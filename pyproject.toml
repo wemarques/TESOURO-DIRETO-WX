@@ -2,7 +2,7 @@
 name = "tesouro-direto-wx"
 version = "0.1.0"
 description = "Sistema analítico para identificação de oportunidades em títulos do Tesouro Direto brasileiro"
-requires-python = ">=3.12"
+requires-python = ">=3.11"
 dependencies = [
     "pandas>=2.2",
     "numpy>=1.26",
@@ -12,6 +12,7 @@ dependencies = [
     "scipy>=1.13",
     "requests>=2.31",
     "python-dateutil>=2.9",
+    "pyarrow>=15.0",
 ]
 
 [project.optional-dependencies]
@@ -22,6 +23,10 @@ dev = [
     "isort>=5.13",
     "ipykernel>=6.29",
 ]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]
 
 [tool.black]
 line-length = 100
