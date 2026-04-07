@@ -44,30 +44,73 @@ def navbar():
     )
 
 
-def metadados_card(data_atualizacao: str, total_titulos: int, total_registros: int):
+def metadados_card(
+    data_atualizacao: str,
+    total_titulos: int,
+    total_registros: int,
+    info_ingestao: dict | None = None,
+):
     """Card com metadados de ultima atualizacao."""
+    from datetime import date, datetime
+
+    badges = [
+        dbc.Badge(
+            f"Dados: {data_atualizacao}",
+            color="info",
+            className="me-2",
+        ),
+        dbc.Badge(
+            f"{total_titulos} titulos ranqueados",
+            color="success",
+            className="me-2",
+        ),
+        dbc.Badge(
+            f"{total_registros:,} registros historicos".replace(",", "."),
+            color="secondary",
+            className="me-2",
+        ),
+    ]
+
+    # Badge de ingestão com cor baseada em frescor
+    if info_ingestao and info_ingestao.get("data_ingestao"):
+        data_ing = info_ingestao["data_ingestao"]
+        metodo = info_ingestao.get("metodo", "")
+
+        try:
+            dt_ing = datetime.fromisoformat(data_ing).date()
+            dias = (date.today() - dt_ing).days
+            if dias == 0:
+                cor = "success"
+            elif dias == 1:
+                cor = "warning"
+            else:
+                cor = "danger"
+        except (ValueError, TypeError):
+            cor = "secondary"
+            dias = -1
+
+        badges.append(
+            dbc.Badge(
+                f"Ingestao: {data_ing}",
+                color=cor,
+                className="me-2",
+            )
+        )
+        if metodo:
+            badges.append(
+                dbc.Badge(
+                    f"Via: {metodo}",
+                    color="light",
+                    text_color="dark",
+                    className="me-2",
+                )
+            )
+
     return dbc.Card(
         dbc.CardBody(
             [
                 html.H6("Metadados da Base", className="card-title text-muted"),
-                html.Div(
-                    [
-                        dbc.Badge(
-                            f"Atualizado: {data_atualizacao}",
-                            color="info",
-                            className="me-2",
-                        ),
-                        dbc.Badge(
-                            f"{total_titulos} titulos ranqueados",
-                            color="success",
-                            className="me-2",
-                        ),
-                        dbc.Badge(
-                            f"{total_registros:,} registros historicos".replace(",", "."),
-                            color="secondary",
-                        ),
-                    ]
-                ),
+                html.Div(badges),
             ]
         ),
         className="mb-3",
