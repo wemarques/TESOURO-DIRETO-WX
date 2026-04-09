@@ -25,6 +25,7 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 - Flag `celula_pequena` em `src/analytics/ranking.py` para marcar (em vez de excluir) títulos de células pequenas (`bb0a80c`)
 
 ### Alterado
+- `railway.toml`: `healthcheckTimeout` aumentado de 300 para 600 segundos para acomodar o pipeline inicial mais longo no primeiro deploy
 - `scripts/rodar_analytics.py` agora também publica `data/outputs/base_analitica.parquet` (consumido pelo dashboard), eliminando passo manual de cópia entre runs
 - Imports reorganizados em `src/dashboard/app.py`, `src/ingestao/{download,monitor,registro}.py`, `src/utils/config.py`, `src/dashboard/layouts.py`, `src/analytics/score.py` e `src/dashboard/callbacks.py` para passar no `ruff check` (regras `I001` isort e `F401` unused-import)
 - Quebras de linha em `src/ingestao/validacao.py` (assinatura `validar_estrutural`) e em chamadas `_stat_card`/`_info_row` em `src/dashboard/callbacks.py` para respeitar limite de 100 colunas
