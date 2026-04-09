@@ -81,11 +81,11 @@ def executar_pipeline():
     logger = logging.getLogger(__name__)
 
     if not _eh_dia_util():
-        logger.info("Nao e dia util — pulando execucao")
+        logger.info("Nao e dia util - pulando execucao")
         return
 
     if _ja_rodou_hoje():
-        logger.info("Pipeline ja rodou com sucesso hoje — pulando")
+        logger.info("Pipeline ja rodou com sucesso hoje - pulando")
         return
 
     logger.info("Iniciando pipeline de atualizacao...")
@@ -107,7 +107,7 @@ def executar_pipeline():
 
     if result.returncode != 0:
         logger.error("Ingestao falhou:\n%s", result.stderr or result.stdout)
-        logger.error("FALHA — pipeline interrompido na ingestao")
+        logger.error("FALHA - pipeline interrompido na ingestao")
         return
 
     logger.info("Ingestao concluida")
@@ -126,11 +126,11 @@ def executar_pipeline():
 
     if result.returncode != 0:
         logger.error("Analytics falhou:\n%s", result.stderr or result.stdout)
-        logger.error("FALHA — pipeline interrompido no analytics")
+        logger.error("FALHA - pipeline interrompido no analytics")
         return
 
     logger.info("Analytics concluido")
-    logger.info("SUCESSO — pipeline completo")
+    logger.info("SUCESSO - pipeline completo")
 
 
 def main():
@@ -146,7 +146,7 @@ def main():
         executar_pipeline()
         return
 
-    logger.info("Agendador iniciado — pipeline rodara as 20:00 em dias uteis")
+    logger.info("Agendador iniciado - pipeline rodara as 20:00 em dias uteis")
     schedule.every().day.at("20:00").do(executar_pipeline)
 
     try:

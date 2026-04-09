@@ -71,7 +71,7 @@ def registrar_carga(info_download: dict, status_validacao: str, observacoes: str
     catalogo.append(entrada)
     _salvar_catalogo(catalogo)
 
-    logger.info("Carga registrada: %s — status=%s", dataset_id, status_validacao)
+    logger.info("Carga registrada: %s - status=%s", dataset_id, status_validacao)
     return entrada
 
 
@@ -100,7 +100,7 @@ def registrar_incidente(tipo_erro: str, mensagem: str, detalhes: dict | None = N
     with open(caminho, "w", encoding="utf-8") as f:
         json.dump(incidente, f, indent=2, ensure_ascii=False)
 
-    logger.error("Incidente registrado: %s — %s", tipo_erro, mensagem)
+    logger.error("Incidente registrado: %s - %s", tipo_erro, mensagem)
     return caminho
 
 
