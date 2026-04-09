@@ -4,7 +4,9 @@ Implementa download robusto com retry, backoff exponencial,
 rate limiting e fallback para URL direta.
 """
 
+import csv
 import hashlib
+import io
 import json
 import logging
 import time
@@ -157,21 +159,42 @@ def baixar_csv(
     # Calcular hash
     hash_sha256 = hashlib.sha256(conteudo).hexdigest()
 
-    # Detectar data de referência lendo a penúltima e última linhas do CSV
-    # O CSV pode estar ordenado cronologicamente (asc ou desc), então
-    # extraímos data_base da primeira e última linha de dados e pegamos a maior
+    # Detectar data_referencia, contagem de linhas e colunas em uma unica
+    # passada via csv.reader. A coluna data_base esta no indice 2.
+    # O max() retorna a data mais recente, independente da ordenacao do CSV.
+    data_referencia = datetime.now().strftime("%Y-%m-%d")
+    linhas_brutas = 0
+    colunas_brutas = 0
     try:
-        linhas = conteudo.decode("latin-1").strip().split("\n")
-        datas_candidatas = []
-        for linha_idx in [1, -1]:  # Primeira e última linha de dados
-            campos = linhas[linha_idx].split(";")
-            data_ref_raw = campos[2].strip()
-            partes = data_ref_raw.split("/")
-            datas_candidatas.append(f"{partes[2]}-{partes[1]}-{partes[0]}")
-        data_referencia = max(datas_candidatas)
-    except Exception:
-        data_referencia = datetime.now().strftime("%Y-%m-%d")
-        logger.warning("Nao foi possivel detectar data_referencia, usando hoje")
+        texto = conteudo.decode("latin-1")
+        leitor = csv.reader(io.StringIO(texto), delimiter=";")
+        max_data_iso: str | None = None
+
+        cabecalho = next(leitor, None)
+        if cabecalho is not None:
+            colunas_brutas = len(cabecalho)
+
+        for linha in leitor:
+            linhas_brutas += 1
+            if len(linha) <= 2:
+                continue
+            data_raw = linha[2].strip()
+            if not data_raw:
+                continue
+            try:
+                d, m, y = data_raw.split("/")
+                data_iso = f"{y}-{m.zfill(2)}-{d.zfill(2)}"
+            except ValueError:
+                continue
+            if max_data_iso is None or data_iso > max_data_iso:
+                max_data_iso = data_iso
+
+        if max_data_iso:
+            data_referencia = max_data_iso
+        else:
+            logger.warning("Nao foi possivel detectar data_referencia, usando hoje")
+    except Exception as e:
+        logger.warning("Erro ao processar CSV para metadados: %s", e)
 
     # Salvar arquivo
     nome = _gerar_nome_arquivo(data_referencia)
@@ -191,6 +214,6 @@ def baixar_csv(
         "metodo": metodo,
         "data_referencia": data_referencia,
         "data_ingestao": datetime.now().isoformat(),
-        "linhas_brutas": len(linhas) - 1,  # Excluir cabeçalho
-        "colunas_brutas": len(linhas[0].split(";")),
+        "linhas_brutas": linhas_brutas,
+        "colunas_brutas": colunas_brutas,
     }
