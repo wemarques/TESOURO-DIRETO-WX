@@ -9,9 +9,8 @@ Implementa 3 fórmulas candidatas:
 
 import logging
 
-import pandas as pd
-
 import numpy as np
+import pandas as pd
 
 from src.utils.constants import PESOS_FORMULA_A, PESOS_FORMULA_B, PESOS_FORMULA_C
 

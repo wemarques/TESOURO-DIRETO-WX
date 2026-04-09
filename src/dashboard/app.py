@@ -21,6 +21,7 @@ from src.dashboard.layouts import (
     pagina_series,
     pagina_titulo,
 )
+from src.ingestao.registro import obter_ultima_ingestao
 
 # === Carregar dados de data/outputs/ ===
 OUTPUTS_DIR = Path(__file__).resolve().parents[2] / "data" / "outputs"
@@ -43,8 +44,6 @@ titulos_unicos = sorted(df_historico["tipo_titulo"].unique().tolist())
 grupos_analiticos = sorted(df_historico["grupo_analitico"].unique().tolist())
 
 # Info da última ingestão (se disponível)
-from src.ingestao.registro import obter_ultima_ingestao
-
 ultima_ingestao = obter_ultima_ingestao()
 info_ingestao = {
     "data_ingestao": ultima_ingestao.get("data_ingestao", "")[:10] if ultima_ingestao else "",

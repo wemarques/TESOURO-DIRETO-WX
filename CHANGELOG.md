@@ -6,6 +6,7 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 ## [2026-04-09]
 
 ### Adicionado
+- GitHub Action `.github/workflows/ci.yml` que roda pytest e ruff a cada push/pull-request na branch `main`. Usa `ubuntu-latest`, Python 3.11 e cache de pip
 - Setup completo do Task Scheduler do Windows: `scripts/task_scheduler_setup.bat` (entry point para o agendador), `scripts/instalar_tarefa_windows.bat` e `scripts/desinstalar_tarefa_windows.bat` (helpers via `schtasks`), `docs/setup-task-scheduler.md` (guia passo a passo) (`67ac351`)
 - Página `/calculadora` "Melhor Título do Dia" no dashboard com 3 perguntas (objetivo, perfil de risco, renda periódica), card de destaque do título recomendado e tabela de alternativas (`1f27c84`)
 - Página `/guia` educativa com 5 seções em accordion: o que é Tesouro Direto, tipos de título, custos e tributação, métricas do dashboard, marcação a mercado (`1f27c84`)
@@ -17,6 +18,10 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 - Função `build_calculadora_dataset()` que constrói dataset da calculadora a partir do snapshot completo do dia (60 títulos, incluindo SELIC) (`7ef305d`)
 - Coluna "Amostra pequena" na tabela de ranking, com badge ✓ e estilo itálico/cinza para títulos cuja célula tem menos de 3 observações (`bb0a80c`)
 - Flag `celula_pequena` em `src/analytics/ranking.py` para marcar (em vez de excluir) títulos de células pequenas (`bb0a80c`)
+
+### Alterado
+- Imports reorganizados em `src/dashboard/app.py`, `src/ingestao/{download,monitor,registro}.py`, `src/utils/config.py`, `src/dashboard/layouts.py`, `src/analytics/score.py` e `src/dashboard/callbacks.py` para passar no `ruff check` (regras `I001` isort e `F401` unused-import)
+- Quebras de linha em `src/ingestao/validacao.py` (assinatura `validar_estrutural`) e em chamadas `_stat_card`/`_info_row` em `src/dashboard/callbacks.py` para respeitar limite de 100 colunas
 
 ### Corrigido
 - Detecção de `data_referencia` em `src/ingestao/download.py` usando `max()` de toda a coluna `data_base` via `csv.reader` em uma única passada, em vez de apenas primeira/última linha (`6ab2f37`)

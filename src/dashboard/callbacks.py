@@ -1,7 +1,6 @@
 """Callbacks de interatividade do dashboard."""
 
 import dash_bootstrap_components as dbc
-import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -711,8 +710,16 @@ def registrar_callbacks(
             [
                 _stat_card("PU Min 52s", _formatar_moeda(pu_min), "secondary"),
                 _stat_card("PU Max 52s", _formatar_moeda(pu_max), "secondary"),
-                _stat_card("Taxa Min 52s", f"{taxa_min:.2f}%" if pd.notna(taxa_min) else "—", "secondary"),
-                _stat_card("Taxa Max 52s", f"{taxa_max:.2f}%" if pd.notna(taxa_max) else "—", "secondary"),
+                _stat_card(
+                    "Taxa Min 52s",
+                    f"{taxa_min:.2f}%" if pd.notna(taxa_min) else "—",
+                    "secondary",
+                ),
+                _stat_card(
+                    "Taxa Max 52s",
+                    f"{taxa_max:.2f}%" if pd.notna(taxa_max) else "—",
+                    "secondary",
+                ),
                 _stat_card(
                     "Valor. 12M",
                     _fmt_pct(valorizacao_12m),
@@ -817,7 +824,10 @@ def registrar_callbacks(
                     str(ultimo["familia_normalizada"]), str(ultimo["familia_normalizada"])
                 )),
                 _info_row("Indexador", indexador),
-                _info_row("Vencimento", pd.Timestamp(ultimo["data_vencimento"]).strftime("%d/%m/%Y")),
+                _info_row(
+                    "Vencimento",
+                    pd.Timestamp(ultimo["data_vencimento"]).strftime("%d/%m/%Y"),
+                ),
                 _info_row("Prazo", f"{ultimo['anos_ate_vencimento']:.1f} anos"),
                 _info_row("Bucket", str(ultimo["bucket_prazo"])),
                 _info_row("Taxa Compra", f"{ultimo['taxa_compra_manha']:.2f}%"),

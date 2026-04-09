@@ -7,7 +7,6 @@ incidentes em caso de falha.
 import json
 import logging
 from datetime import datetime
-from pathlib import Path
 
 from src.utils.constants import DATA_AUDIT
 

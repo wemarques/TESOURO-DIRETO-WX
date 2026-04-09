@@ -56,7 +56,11 @@ def validar_fisico(caminho: Path) -> dict[str, Any]:
     }
 
 
-def validar_estrutural(caminho: Path, separador: str = ";", encoding: str = "latin-1") -> dict[str, Any]:
+def validar_estrutural(
+    caminho: Path,
+    separador: str = ";",
+    encoding: str = "latin-1",
+) -> dict[str, Any]:
     """Validação estrutural: schema, colunas, tipos."""
     erros = []
     alertas = []

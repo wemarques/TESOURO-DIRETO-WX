@@ -15,11 +15,11 @@ import logging
 import pandas as pd
 
 from src.utils.constants import (
+    DATA_ENRIQUECIDO,
     FAMILIA_PARA_GRUPO,
     LIMITES_BUCKET,
     MAPA_FAMILIA,
     BucketPrazo,
-    DATA_ENRIQUECIDO,
 )
 
 logger = logging.getLogger(__name__)

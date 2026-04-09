@@ -3,7 +3,6 @@
 import dash_bootstrap_components as dbc
 from dash import dash_table, dcc, html
 
-
 # === Mapa de nomes amigaveis para familias ===
 NOMES_FAMILIA = {
     "SELIC": "Tesouro Selic",

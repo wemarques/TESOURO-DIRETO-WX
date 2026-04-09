@@ -5,10 +5,8 @@ from pathlib import Path
 
 from src.utils.constants import (
     DATA_AUDIT,
-    DATA_ENRIQUECIDO,
     DATA_OUTPUTS,
     DATA_PADRONIZADO,
-    DATA_PROCESSED,
     DATA_RAW,
     PESOS_FORMULA_A,
 )
