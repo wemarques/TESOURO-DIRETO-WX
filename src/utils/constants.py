@@ -132,6 +132,10 @@ PESOS_FORMULA_C = {
 }
 
 
+# === Indicadores macro (valores de referencia, atualizar manualmente) ===
+IPCA_ATUAL = 3.81  # IPCA acumulado 12 meses (% a.a.)
+
+
 # === Fontes oficiais ===
 URL_TESOURO_CKAN = (
     "https://www.tesourotransparente.gov.br/ckan/dataset/"

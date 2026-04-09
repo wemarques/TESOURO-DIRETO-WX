@@ -27,10 +27,18 @@ def navbar():
                     [
                         dbc.NavItem(dbc.NavLink("Ranking", href="/", active="exact")),
                         dbc.NavItem(
-                            dbc.NavLink("Series Temporais", href="/series", active="exact")
+                            dbc.NavLink("Series", href="/series", active="exact")
+                        ),
+                        dbc.NavItem(
+                            dbc.NavLink(
+                                "Melhor Titulo do Dia", href="/calculadora", active="exact"
+                            )
                         ),
                         dbc.NavItem(
                             dbc.NavLink("Titulo Individual", href="/titulo", active="exact")
+                        ),
+                        dbc.NavItem(
+                            dbc.NavLink("Guia", href="/guia", active="exact")
                         ),
                     ],
                     navbar=True,
@@ -71,7 +79,6 @@ def metadados_card(
         ),
     ]
 
-    # Badge de ingestão com cor baseada em frescor
     if info_ingestao and info_ingestao.get("data_ingestao"):
         data_ing = info_ingestao["data_ingestao"]
         metodo = info_ingestao.get("metodo", "")
@@ -87,7 +94,6 @@ def metadados_card(
                 cor = "danger"
         except (ValueError, TypeError):
             cor = "secondary"
-            dias = -1
 
         badges.append(
             dbc.Badge(
@@ -116,6 +122,10 @@ def metadados_card(
         className="mb-3",
     )
 
+
+# =============================================================================
+# PAGINA RANKING
+# =============================================================================
 
 def pagina_ranking(familias: list[str]):
     """Layout da pagina de ranking por familia."""
@@ -218,12 +228,32 @@ def pagina_ranking(familias: list[str]):
                         "if": {"filter_query": "{score} < 0.3", "column_id": "score"},
                         "backgroundColor": "#f8d7da",
                     },
+                    {
+                        "if": {
+                            "filter_query": '{variacao_12m_str} contains "↑"',
+                            "column_id": "variacao_12m_str",
+                        },
+                        "color": "#c62828",
+                        "fontWeight": "bold",
+                    },
+                    {
+                        "if": {
+                            "filter_query": '{variacao_12m_str} contains "↓"',
+                            "column_id": "variacao_12m_str",
+                        },
+                        "color": "#2e7d32",
+                        "fontWeight": "bold",
+                    },
                 ],
             ),
         ],
         fluid=True,
     )
 
+
+# =============================================================================
+# PAGINA SERIES TEMPORAIS
+# =============================================================================
 
 def pagina_series(familias: list[str], titulos: list[str], grupos: list[str]):
     """Layout da pagina de series temporais."""
@@ -321,6 +351,10 @@ def pagina_series(familias: list[str], titulos: list[str], grupos: list[str]):
     )
 
 
+# =============================================================================
+# PAGINA TITULO INDIVIDUAL
+# =============================================================================
+
 def pagina_titulo(titulos: list[str]):
     """Layout da pagina de detalhamento individual."""
     opcoes = [{"label": t, "value": t} for t in sorted(titulos)]
@@ -342,9 +376,28 @@ def pagina_titulo(titulos: list[str]):
                         ],
                         md=6,
                     ),
+                    dbc.Col(
+                        [
+                            html.Label("Periodo do grafico", className="fw-bold"),
+                            dcc.Dropdown(
+                                id="titulo-periodo-dropdown",
+                                options=[
+                                    {"label": "30 dias", "value": 30},
+                                    {"label": "6 meses", "value": 180},
+                                    {"label": "1 ano", "value": 365},
+                                    {"label": "5 anos", "value": 1825},
+                                    {"label": "Maximo", "value": 0},
+                                ],
+                                value=365,
+                                clearable=False,
+                            ),
+                        ],
+                        md=3,
+                    ),
                 ],
                 className="mb-3",
             ),
+            html.Div(id="titulo-stats-cards", className="mb-3"),
             dbc.Row(
                 [
                     dbc.Col(dbc.Card(id="titulo-card-info"), md=4),
@@ -357,6 +410,384 @@ def pagina_titulo(titulos: list[str]):
                     dbc.Col(dcc.Graph(id="titulo-pu-chart"), md=6),
                     dbc.Col(dcc.Graph(id="titulo-spread-chart"), md=6),
                 ],
+            ),
+        ],
+        fluid=True,
+    )
+
+
+# =============================================================================
+# PAGINA CALCULADORA - MELHOR TITULO DO DIA
+# =============================================================================
+
+def pagina_calculadora():
+    """Layout da pagina de calculadora 'Melhor Titulo do Dia'."""
+    return dbc.Container(
+        [
+            html.H4("Melhor Titulo do Dia", className="mb-2"),
+            html.P(
+                "Responda 3 perguntas e descubra qual titulo do Tesouro Direto "
+                "melhor se encaixa no seu objetivo hoje.",
+                className="text-muted mb-4",
+            ),
+            dbc.Card(
+                dbc.CardBody(
+                    [
+                        html.H5("Suas preferencias", className="card-title mb-3"),
+                        dbc.Row(
+                            [
+                                dbc.Col(
+                                    [
+                                        html.Label(
+                                            "Qual seu objetivo?",
+                                            className="fw-bold",
+                                        ),
+                                        dcc.Dropdown(
+                                            id="calc-objetivo-dropdown",
+                                            options=[
+                                                {
+                                                    "label": "Reserva de emergencia",
+                                                    "value": "reserva",
+                                                },
+                                                {
+                                                    "label": "Curto prazo (ate 2 anos)",
+                                                    "value": "curto",
+                                                },
+                                                {
+                                                    "label": "Medio prazo (2-5 anos)",
+                                                    "value": "medio",
+                                                },
+                                                {
+                                                    "label": "Longo prazo (5-15 anos)",
+                                                    "value": "longo",
+                                                },
+                                                {
+                                                    "label": "Aposentadoria (15+ anos)",
+                                                    "value": "aposentadoria",
+                                                },
+                                            ],
+                                            value="medio",
+                                            clearable=False,
+                                        ),
+                                    ],
+                                    md=4,
+                                ),
+                                dbc.Col(
+                                    [
+                                        html.Label(
+                                            "Aceita oscilacao no caminho?",
+                                            className="fw-bold",
+                                        ),
+                                        dcc.RadioItems(
+                                            id="calc-oscilacao-radio",
+                                            options=[
+                                                {
+                                                    "label": " Nao (conservador)",
+                                                    "value": "conservador",
+                                                },
+                                                {
+                                                    "label": " Um pouco (moderado)",
+                                                    "value": "moderado",
+                                                },
+                                                {
+                                                    "label": " Sim (arrojado)",
+                                                    "value": "arrojado",
+                                                },
+                                            ],
+                                            value="moderado",
+                                            labelStyle={"display": "block"},
+                                        ),
+                                    ],
+                                    md=4,
+                                ),
+                                dbc.Col(
+                                    [
+                                        html.Label(
+                                            "Precisa de renda periodica?",
+                                            className="fw-bold",
+                                        ),
+                                        dcc.RadioItems(
+                                            id="calc-renda-radio",
+                                            options=[
+                                                {"label": " Nao", "value": "nao"},
+                                                {
+                                                    "label": " Sim (juros semestrais)",
+                                                    "value": "sim",
+                                                },
+                                            ],
+                                            value="nao",
+                                            labelStyle={"display": "block"},
+                                        ),
+                                    ],
+                                    md=4,
+                                ),
+                            ]
+                        ),
+                    ]
+                ),
+                className="mb-4",
+            ),
+            html.Div(id="calc-resultado"),
+        ],
+        fluid=True,
+    )
+
+
+# =============================================================================
+# PAGINA GUIA - ENTENDA OS TITULOS
+# =============================================================================
+
+def _accordion_titulo(label: str, sigla: str, descricao: str, indexador: str):
+    """Helper para criar item de accordion para um tipo de titulo."""
+    return dbc.AccordionItem(
+        [
+            html.P([html.Strong("Sigla tecnica: "), sigla]),
+            html.P([html.Strong("Indexador: "), indexador]),
+            html.P(descricao),
+        ],
+        title=label,
+    )
+
+
+def pagina_guia():
+    """Layout da pagina educativa 'Entenda os Titulos'."""
+    return dbc.Container(
+        [
+            html.H4("Entenda os Titulos", className="mb-3"),
+            html.P(
+                "Guia rapido sobre o que sao os titulos do Tesouro Direto, "
+                "como funcionam e o que cada metrica do dashboard significa.",
+                className="text-muted mb-4",
+            ),
+            dbc.Accordion(
+                [
+                    # Secao 1
+                    dbc.AccordionItem(
+                        [
+                            html.P(
+                                "O Tesouro Direto e um programa do governo federal que "
+                                "permite a qualquer pessoa fisica emprestar dinheiro ao "
+                                "Tesouro Nacional. Em troca, o governo paga juros sobre "
+                                "o valor emprestado, com regras (taxa, prazo e indexador) "
+                                "definidas no momento da compra."
+                            ),
+                            html.P(
+                                "E considerado o investimento de menor risco do mercado "
+                                "brasileiro, ja que tem garantia do governo federal. Tambem "
+                                "e democratico: pode comprar com pouco dinheiro (a partir "
+                                "de cerca de R$ 30) e nao depende de banco especifico."
+                            ),
+                            html.P(
+                                "Os titulos podem ser usados para diferentes objetivos: "
+                                "reserva de emergencia, projetos de medio prazo, aposentadoria "
+                                "ou educacao dos filhos. A escolha do titulo depende do prazo "
+                                "do objetivo, da tolerancia a oscilacao e da necessidade ou nao "
+                                "de receber renda periodica."
+                            ),
+                        ],
+                        title="O que e Tesouro Direto?",
+                    ),
+                    # Secao 2
+                    dbc.AccordionItem(
+                        [
+                            html.P(
+                                "Cada familia de titulo tem caracteristicas proprias. "
+                                "Veja abaixo as principais:",
+                                className="text-muted mb-3",
+                            ),
+                            dbc.Accordion(
+                                [
+                                    _accordion_titulo(
+                                        "Tesouro Selic",
+                                        "LFT",
+                                        "Acompanha a taxa Selic, com baixissima oscilacao "
+                                        "diaria. Ideal para reserva de emergencia, ja que voce "
+                                        "pode resgatar a qualquer momento sem grandes perdas. "
+                                        "A rentabilidade segue a taxa basica de juros do pais.",
+                                        "Selic",
+                                    ),
+                                    _accordion_titulo(
+                                        "Tesouro Prefixado",
+                                        "LTN",
+                                        "Voce sabe exatamente quanto vai receber no vencimento. "
+                                        "A taxa fica travada no momento da compra. Bom quando "
+                                        "voce acredita que os juros vao cair no futuro. Se "
+                                        "vender antes do vencimento, pode ganhar ou perder.",
+                                        "Nenhum (taxa fixa)",
+                                    ),
+                                    _accordion_titulo(
+                                        "Tesouro Prefixado com Juros Semestrais",
+                                        "NTN-F",
+                                        "Igual ao Prefixado, mas paga cupom (juros) a cada "
+                                        "6 meses. Bom para quem quer renda periodica sem "
+                                        "esperar o vencimento. O valor recebido a cada cupom "
+                                        "sofre IR.",
+                                        "Nenhum (taxa fixa)",
+                                    ),
+                                    _accordion_titulo(
+                                        "Tesouro IPCA+",
+                                        "NTN-B Principal",
+                                        "Paga IPCA + uma taxa real fixa. Protege seu poder "
+                                        "de compra contra a inflacao, alem de garantir um "
+                                        "ganho real (acima da inflacao). Bom para objetivos "
+                                        "de longo prazo.",
+                                        "IPCA",
+                                    ),
+                                    _accordion_titulo(
+                                        "Tesouro IPCA+ com Juros Semestrais",
+                                        "NTN-B",
+                                        "Igual ao IPCA+, mas com cupom semestral. Mesmo "
+                                        "racional do NTN-F, mas com indexacao a inflacao.",
+                                        "IPCA",
+                                    ),
+                                    _accordion_titulo(
+                                        "Tesouro Educa+",
+                                        "NTN-B Principal (variante)",
+                                        "Voltado para acumular para a educacao dos filhos. "
+                                        "Paga IPCA + taxa real e tem cronograma especifico "
+                                        "de pagamento que coincide com o periodo educacional.",
+                                        "IPCA",
+                                    ),
+                                    _accordion_titulo(
+                                        "Tesouro Renda+",
+                                        "NTN-B (variante)",
+                                        "Voltado para aposentadoria. Paga IPCA + taxa real, "
+                                        "e na fase de pagamento entrega uma renda mensal por "
+                                        "20 anos. Bom complemento para previdencia.",
+                                        "IPCA",
+                                    ),
+                                ],
+                                start_collapsed=True,
+                                always_open=False,
+                            ),
+                        ],
+                        title="Tipos de titulo",
+                    ),
+                    # Secao 3
+                    dbc.AccordionItem(
+                        [
+                            html.H6("Taxa de custodia B3", className="fw-bold"),
+                            html.P(
+                                "0,20% ao ano sobre o valor investido. Cobrada "
+                                "semestralmente. O Tesouro Selic e isento dessa taxa "
+                                "ate R$ 10.000 investidos."
+                            ),
+                            html.H6("Imposto de Renda (regressivo)", className="fw-bold"),
+                            html.Ul(
+                                [
+                                    html.Li("Ate 180 dias: 22,5%"),
+                                    html.Li("De 181 a 360 dias: 20,0%"),
+                                    html.Li("De 361 a 720 dias: 17,5%"),
+                                    html.Li("Acima de 720 dias: 15,0%"),
+                                ]
+                            ),
+                            html.P(
+                                "O IR incide somente sobre os rendimentos, nao sobre "
+                                "o valor investido. E retido na fonte no momento do resgate "
+                                "ou do pagamento de cupom."
+                            ),
+                            html.H6("IOF", className="fw-bold"),
+                            html.P(
+                                "Cobrado apenas se voce vender antes de 30 dias da compra. "
+                                "Comeca em 96% sobre o ganho no primeiro dia e diminui "
+                                "progressivamente ate zero no 30o dia."
+                            ),
+                        ],
+                        title="Custos e tributacao",
+                    ),
+                    # Secao 4
+                    dbc.AccordionItem(
+                        [
+                            html.P(
+                                "O dashboard usa varias metricas para ranquear "
+                                "oportunidades. Veja o que cada uma significa:",
+                                className="text-muted mb-2",
+                            ),
+                            html.H6("Score A (base)", className="fw-bold"),
+                            html.P(
+                                "Nota de 0 a 1 que combina Carry (40%), Valor Relativo "
+                                "(40%) e Liquidez (20%). E o score mais simples e direto."
+                            ),
+                            html.H6("Score B (ajustado por risco)", className="fw-bold"),
+                            html.P(
+                                "Igual ao Score A, mas penaliza titulos de prazo muito "
+                                "longo (que oscilam mais). Use quando voce nao quer "
+                                "muita oscilacao no caminho."
+                            ),
+                            html.H6("Score C (residuo de curva)", className="fw-bold"),
+                            html.P(
+                                "Score mais sofisticado: ajusta uma curva teorica de juros "
+                                "(Nelson-Siegel-Svensson) e aponta titulos que pagam mais "
+                                "do que a curva sugere. Bom para identificar 'distorcoes' "
+                                "de mercado."
+                            ),
+                            html.H6("Carry", className="fw-bold"),
+                            html.P(
+                                "Quanto a taxa do titulo esta acima da mediana do seu grupo "
+                                "de pares. Positivo = paga mais que a media."
+                            ),
+                            html.H6("Valor Relativo (z-score)", className="fw-bold"),
+                            html.P(
+                                "Mede quantos desvios-padrao a taxa esta acima ou abaixo "
+                                "da media do grupo. Quanto maior, mais atrativo em "
+                                "termos relativos."
+                            ),
+                            html.H6("Liquidez", className="fw-bold"),
+                            html.P(
+                                "Indicador de 0 a 1 que mede a facilidade de comprar e "
+                                "vender o titulo. Baseado no spread entre compra e venda. "
+                                "Perto de 1 = facil de negociar."
+                            ),
+                            html.H6("Bucket de prazo", className="fw-bold"),
+                            html.P(
+                                "Faixa de prazo do titulo. Curto (ate 2 anos), "
+                                "Intermediario (2-5 anos), Longo (5-15 anos), "
+                                "Ultralongo (acima de 15 anos)."
+                            ),
+                            html.H6("Celula analitica", className="fw-bold"),
+                            html.P(
+                                "Combinacao de grupo (familia/estrutura) + bucket de prazo. "
+                                "Os titulos so sao comparados dentro da mesma celula -- nao "
+                                "faz sentido comparar um Selic curto com um IPCA+ longo."
+                            ),
+                        ],
+                        title="O que significam as metricas do dashboard",
+                    ),
+                    # Secao 5
+                    dbc.AccordionItem(
+                        [
+                            html.P(
+                                "Marcacao a mercado e o nome dado ao processo de "
+                                "atualizacao diaria do preco do seu titulo. Mesmo que "
+                                "voce nao venda, o valor de mercado oscila todos os dias "
+                                "conforme as expectativas de juros mudam."
+                            ),
+                            html.H6("Como funciona", className="fw-bold"),
+                            html.P(
+                                "Quando voce compra um titulo prefixado a 12% a.a. e "
+                                "depois os juros do mercado caem para 10%, o seu titulo "
+                                "passa a valer mais no mercado (porque ele paga mais que "
+                                "os novos titulos). O contrario tambem vale: se os juros "
+                                "subirem, seu titulo passa a valer menos."
+                            ),
+                            html.H6("Quando isso importa", className="fw-bold"),
+                            html.P(
+                                "Se voce levar o titulo ate o vencimento, voce sempre "
+                                "recebe a taxa contratada na compra. A oscilacao do "
+                                "preco no caminho so importa se voce decidir vender antes."
+                            ),
+                            html.P(
+                                "Os Tesouros Selic tem oscilacao baixissima porque a "
+                                "taxa do papel acompanha a Selic. Os Prefixados e os "
+                                "IPCA+ longos tem oscilacao maior, e por isso sao "
+                                "considerados de maior risco de marcacao."
+                            ),
+                        ],
+                        title="Marcacao a mercado",
+                    ),
+                ],
+                start_collapsed=True,
+                always_open=False,
             ),
         ],
         fluid=True,

@@ -5,12 +5,14 @@ from pathlib import Path
 import dash
 import dash_bootstrap_components as dbc
 import pandas as pd
-from dash import Input, Output, html, dcc
+from dash import Input, Output, dcc, html
 
-from src.dashboard.callbacks import registrar_callbacks
+from src.dashboard.callbacks import calcular_variacao_e_pu, registrar_callbacks
 from src.dashboard.layouts import (
     metadados_card,
     navbar,
+    pagina_calculadora,
+    pagina_guia,
     pagina_ranking,
     pagina_series,
     pagina_titulo,
@@ -21,6 +23,9 @@ OUTPUTS_DIR = Path(__file__).resolve().parents[2] / "data" / "outputs"
 
 df_ranking = pd.read_parquet(OUTPUTS_DIR / "ranking_atual.parquet")
 df_historico = pd.read_parquet(OUTPUTS_DIR / "base_analitica.parquet")
+
+# Pre-computar variacao 12M e pu_compra_atual no ranking
+df_ranking = calcular_variacao_e_pu(df_ranking, df_historico)
 
 # Metadados
 data_atualizacao = df_ranking["data_base"].max().strftime("%d/%m/%Y")
@@ -70,6 +75,10 @@ def renderizar_pagina(pathname: str):
         return pagina_series(familias, titulos_unicos, grupos_analiticos)
     if pathname == "/titulo":
         return pagina_titulo(titulos_unicos)
+    if pathname == "/calculadora":
+        return pagina_calculadora()
+    if pathname == "/guia":
+        return pagina_guia()
     return pagina_ranking(familias)
 
 
