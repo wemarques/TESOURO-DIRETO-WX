@@ -230,18 +230,18 @@ def pagina_ranking(familias: list[str]):
                     },
                     {
                         "if": {
-                            "filter_query": '{variacao_12m_str} contains "↑"',
-                            "column_id": "variacao_12m_str",
+                            "filter_query": '{taxa_pp_12m_str} contains "+"',
+                            "column_id": "taxa_pp_12m_str",
                         },
-                        "color": "#c62828",
+                        "color": "#1565c0",
                         "fontWeight": "bold",
                     },
                     {
                         "if": {
-                            "filter_query": '{variacao_12m_str} contains "↓"',
-                            "column_id": "variacao_12m_str",
+                            "filter_query": '{taxa_pp_12m_str} contains "-"',
+                            "column_id": "taxa_pp_12m_str",
                         },
-                        "color": "#2e7d32",
+                        "color": "#616161",
                         "fontWeight": "bold",
                     },
                 ],

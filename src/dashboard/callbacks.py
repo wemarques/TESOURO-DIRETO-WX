@@ -27,9 +27,10 @@ MAPA_INDEXADOR = {
 # =============================================================================
 
 def calcular_variacao_e_pu(df_ranking: pd.DataFrame, df_historico: pd.DataFrame) -> pd.DataFrame:
-    """Acrescenta colunas variacao_12m e pu_compra_atual ao ranking."""
+    """Acrescenta colunas taxa_12m_atras, taxa_pp_12m e pu_compra_atual ao ranking."""
     df = df_ranking.copy()
-    df["variacao_12m"] = float("nan")
+    df["taxa_12m_atras"] = float("nan")
+    df["taxa_pp_12m"] = float("nan")
     df["pu_compra_atual"] = float("nan")
 
     data_max = df_historico["data_base"].max()
@@ -55,21 +56,17 @@ def calcular_variacao_e_pu(df_ranking: pd.DataFrame, df_historico: pd.DataFrame)
         if not hist_antes.empty:
             taxa_antiga = hist_antes.iloc[-1]["taxa_compra_manha"]
             taxa_atual = atual["taxa_compra_manha"]
-            if taxa_antiga and taxa_antiga != 0:
-                df.at[idx, "variacao_12m"] = ((taxa_atual - taxa_antiga) / taxa_antiga) * 100
+            df.at[idx, "taxa_12m_atras"] = float(taxa_antiga)
+            df.at[idx, "taxa_pp_12m"] = float(taxa_atual - taxa_antiga)
 
     return df
 
 
-def _formatar_variacao(v: float) -> str:
-    """Formata variacao 12M com seta. Subir taxa = preco caiu (vermelho)."""
+def _formatar_pp(v: float) -> str:
+    """Formata variacao em pontos percentuais. Ex: '+0.50 pp' ou '-0.30 pp'."""
     if pd.isna(v):
         return "—"
-    if v > 0:
-        return f"↑ {v:+.2f}%"  # taxa subiu, preco caiu
-    if v < 0:
-        return f"↓ {v:+.2f}%"  # taxa caiu, preco subiu
-    return "= 0,00%"
+    return f"{v:+.2f} pp"
 
 
 def _formatar_moeda(v: float) -> str:
@@ -227,10 +224,10 @@ def registrar_callbacks(app, df_ranking: pd.DataFrame, df_historico: pd.DataFram
         "taxa_compra_manha": (
             "Taxa anual que o investidor recebe se comprar e segurar ate o vencimento"
         ),
-        "variacao_12m_str": (
-            "Variacao da taxa de compra nos ultimos 12 meses. "
-            "Seta vermelha (taxa subiu) = preco caiu. "
-            "Seta verde (taxa caiu) = preco subiu."
+        "taxa_pp_12m_str": (
+            "Variacao da taxa em pontos percentuais (pp) nos ultimos 12 meses. "
+            "Em renda fixa: taxa subindo = preco caindo = oportunidade para "
+            "quem quer comprar. Taxa caindo = preco subindo = bom para quem ja tem."
         ),
         "pu_compra_str": "Preco unitario de compra atual em reais",
         "carry": (
@@ -316,7 +313,7 @@ def registrar_callbacks(app, df_ranking: pd.DataFrame, df_historico: pd.DataFram
 
         # Colunas derivadas para apresentacao
         df["indexador"] = df["tipo_titulo"].map(MAPA_INDEXADOR).fillna("-")
-        df["variacao_12m_str"] = df["variacao_12m"].apply(_formatar_variacao)
+        df["taxa_pp_12m_str"] = df["taxa_pp_12m"].apply(_formatar_pp)
         df["pu_compra_str"] = df["pu_compra_atual"].apply(_formatar_moeda)
 
         colunas_tabela = [
@@ -325,7 +322,7 @@ def registrar_callbacks(app, df_ranking: pd.DataFrame, df_historico: pd.DataFram
             ("data_vencimento", "Vencimento"),
             ("bucket_prazo", "Bucket"),
             ("taxa_compra_manha", "Taxa Compra (%)"),
-            ("variacao_12m_str", "Variacao 12M"),
+            ("taxa_pp_12m_str", "Taxa 12M (pp)"),
             ("pu_compra_str", "PU Compra"),
             ("carry", "Carry"),
             ("rv_zscore", "RV z-score"),
@@ -530,6 +527,18 @@ def registrar_callbacks(app, df_ranking: pd.DataFrame, df_historico: pd.DataFram
         taxa_min = df_52w["taxa_compra_manha"].min()
         taxa_max = df_52w["taxa_compra_manha"].max()
 
+        # Comparacao 12 meses (taxa em pp)
+        taxa_atual = float(ultimo["taxa_compra_manha"])
+        if not df_12m_atras.empty:
+            taxa_antiga = float(df_12m_atras.iloc[-1]["taxa_compra_manha"])
+        else:
+            taxa_antiga = float("nan")
+        pp_12m = (
+            taxa_atual - taxa_antiga
+            if pd.notna(taxa_antiga)
+            else float("nan")
+        )
+
         def _fmt_pct(v):
             if pd.isna(v):
                 return "—"
@@ -554,6 +563,80 @@ def registrar_callbacks(app, df_ranking: pd.DataFrame, df_historico: pd.DataFram
             ],
             className="g-2",
         )
+
+        # Card de comparacao 12 meses com efeito no preco
+        if pd.isna(pp_12m):
+            efeito_icone = ""
+            efeito_texto = "Sem dado de 12 meses atras"
+            efeito_cor = "secondary"
+        elif pp_12m > 0:
+            efeito_icone = "🛒"
+            efeito_texto = "titulo ficou mais barato (oportunidade para compra)"
+            efeito_cor = "primary"
+        elif pp_12m < 0:
+            efeito_icone = "⚠️"
+            efeito_texto = "titulo ficou mais caro (menos atrativo para entrada agora)"
+            efeito_cor = "warning"
+        else:
+            efeito_icone = "="
+            efeito_texto = "preco praticamente inalterado"
+            efeito_cor = "secondary"
+
+        card_12m = dbc.Card(
+            dbc.CardBody(
+                [
+                    html.H6(
+                        "Comparacao 12 meses (taxa)",
+                        className="card-title text-muted",
+                    ),
+                    dbc.Row(
+                        [
+                            dbc.Col(
+                                [
+                                    html.Div("Taxa ha 12 meses", className="small text-muted"),
+                                    html.H5(
+                                        f"{taxa_antiga:.2f}%" if pd.notna(taxa_antiga) else "—",
+                                    ),
+                                ],
+                                md=3,
+                            ),
+                            dbc.Col(
+                                [
+                                    html.Div("Taxa hoje", className="small text-muted"),
+                                    html.H5(f"{taxa_atual:.2f}%"),
+                                ],
+                                md=3,
+                            ),
+                            dbc.Col(
+                                [
+                                    html.Div("Variacao", className="small text-muted"),
+                                    html.H5(_formatar_pp(pp_12m)),
+                                ],
+                                md=3,
+                            ),
+                            dbc.Col(
+                                [
+                                    html.Div(
+                                        "Efeito no preco", className="small text-muted"
+                                    ),
+                                    html.H6(
+                                        [
+                                            html.Span(efeito_icone, className="me-2"),
+                                            efeito_texto,
+                                        ],
+                                        className=f"text-{efeito_cor}",
+                                    ),
+                                ],
+                                md=3,
+                            ),
+                        ],
+                    ),
+                ]
+            ),
+            className="shadow-sm mt-3",
+        )
+
+        stats_div = html.Div([stats_row, card_12m])
 
         # Filtrar pelo periodo do grafico
         if periodo_dias and periodo_dias > 0:
@@ -619,7 +702,7 @@ def registrar_callbacks(app, df_ranking: pd.DataFrame, df_historico: pd.DataFram
         )
         fig_spread.update_layout(template="plotly_white", height=350)
 
-        return card_body, stats_row, fig_taxa, fig_pu, fig_spread
+        return card_body, stats_div, fig_taxa, fig_pu, fig_spread
 
     # =========================================================================
     # CALCULADORA
