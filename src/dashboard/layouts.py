@@ -244,6 +244,11 @@ def pagina_ranking(familias: list[str]):
                         "color": "#616161",
                         "fontWeight": "bold",
                     },
+                    {
+                        "if": {"filter_query": '{celula_pequena_str} = "✓"'},
+                        "fontStyle": "italic",
+                        "color": "#9e9e9e",
+                    },
                 ],
             ),
         ],

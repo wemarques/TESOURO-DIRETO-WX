@@ -412,6 +412,11 @@ def registrar_callbacks(
             "Posicao no ranking geral - apenas informativo, "
             "nao use para decisao entre familias diferentes"
         ),
+        "celula_pequena_str": (
+            "Marca titulos cuja celula analitica tem menos de 3 observacoes. "
+            "Os scores ainda sao calculados, mas a comparacao tem menos "
+            "robustez estatistica. Linha exibida em italico/cinza."
+        ),
     }
 
     # =========================================================================
@@ -466,6 +471,12 @@ def registrar_callbacks(
         df["indexador"] = df["tipo_titulo"].map(MAPA_INDEXADOR).fillna("-")
         df["taxa_pp_12m_str"] = df["taxa_pp_12m"].apply(_formatar_pp)
         df["pu_compra_str"] = df["pu_compra_atual"].apply(_formatar_moeda)
+        if "celula_pequena" in df.columns:
+            df["celula_pequena_str"] = df["celula_pequena"].map(
+                {True: "✓", False: ""}
+            ).fillna("")
+        else:
+            df["celula_pequena_str"] = ""
 
         colunas_tabela = [
             ("tipo_titulo", "Titulo"),
@@ -481,6 +492,7 @@ def registrar_callbacks(
             (score_col, score_label),
             ("posicao_celula", "Pos. Celula"),
             ("posicao_global", "Pos. Global"),
+            ("celula_pequena_str", "Amostra pequena"),
         ]
         cols_dash = [{"name": label, "id": col_id} for col_id, label in colunas_tabela]
 

@@ -43,13 +43,19 @@ def gerar_ranking(
         logger.warning("Nenhum dado para data_referencia=%s", data_referencia)
         return pd.DataFrame()
 
-    # Verificar mínimo de observações por célula
+    # Marcar células com amostra pequena (NÃO excluir mais)
     min_obs = config.analytics.min_observacoes_celula
     contagem = snapshot.groupby("celula_analitica").size()
-    celulas_validas = contagem[contagem >= min_obs].index
+    snapshot["celula_pequena"] = snapshot["celula_analitica"].map(
+        lambda c: contagem.get(c, 0) < min_obs
+    )
 
-    # Filtrar apenas células com massa suficiente
-    snapshot = snapshot[snapshot["celula_analitica"].isin(celulas_validas)]
+    n_pequenas = snapshot["celula_pequena"].sum()
+    if n_pequenas:
+        logger.info(
+            "%d titulos em celulas com menos de %d observacoes (mantidos com flag)",
+            n_pequenas, min_obs,
+        )
 
     # Ranking por célula analítica
     snapshot["posicao_celula"] = snapshot.groupby("celula_analitica")[coluna_score].rank(
@@ -71,6 +77,7 @@ def gerar_ranking(
         "grupo_analitico",
         "bucket_prazo",
         "celula_analitica",
+        "celula_pequena",
         "taxa_compra_manha",
         "taxa_venda_manha",
         "spread_compra_venda",
@@ -97,13 +104,15 @@ def gerar_ranking(
     resultado.attrs["data_referencia"] = str(data_referencia)
     resultado.attrs["formula"] = coluna_score
     resultado.attrs["timestamp"] = datetime.now().isoformat()
-    resultado.attrs["celulas_ranqueadas"] = len(celulas_validas)
+    resultado.attrs["celulas_ranqueadas"] = snapshot["celula_analitica"].nunique()
     resultado.attrs["titulos_ranqueados"] = len(resultado)
+    resultado.attrs["titulos_amostra_pequena"] = int(n_pequenas)
 
     logger.info(
-        "Ranking gerado: %d títulos em %d células — data_ref=%s",
+        "Ranking gerado: %d titulos em %d celulas (%d com amostra pequena) - data_ref=%s",
         len(resultado),
-        len(celulas_validas),
+        snapshot["celula_analitica"].nunique(),
+        n_pequenas,
         data_referencia,
     )
 
