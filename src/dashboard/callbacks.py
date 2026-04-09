@@ -105,104 +105,255 @@ def _stat_card(titulo: str, valor: str, cor: str = "primary", subtitulo: str = "
 
 
 # =============================================================================
-# LOGICA DA CALCULADORA
+# LOGICA DA CALCULADORA - CASCATA DE FALLBACK
 # =============================================================================
 
-def selecionar_titulo_calculadora(
-    df_ranking: pd.DataFrame, objetivo: str, oscilacao: str, renda_periodica: str,
-) -> tuple[pd.Series | None, pd.DataFrame, str, str]:
-    """Aplica regras para selecionar o melhor titulo conforme respostas.
+BUCKETS_ORDER = ["CURTO", "INTER", "LONGO", "ULTRA"]
 
-    Returns:
-        (melhor_titulo, alternativas_df, score_col, explicacao)
-    """
-    df = df_ranking.copy()
+# Mapeamento objetivo -> familias permitidas e buckets ideais
+MAPA_OBJETIVO = {
+    "reserva": {
+        "familias": ["SELIC"],
+        "buckets": ["CURTO", "INTER", "LONGO", "ULTRA"],
+    },
+    "curto": {
+        "familias": ["SELIC", "PRE"],
+        "buckets": ["CURTO"],
+    },
+    "medio": {
+        "familias": ["PRE", "PRE_JS", "IPCA", "IPCA_JS"],
+        "buckets": ["INTER", "CURTO"],
+    },
+    "longo": {
+        "familias": ["IPCA", "IPCA_JS", "PRE_JS"],
+        "buckets": ["LONGO", "INTER"],
+    },
+    "aposentadoria": {
+        "familias": ["IPCA", "IPCA_JS", "RENDA", "EDUCA"],
+        "buckets": ["ULTRA", "LONGO"],
+    },
+}
 
-    # Filtro: precisa renda periodica = somente titulos com cupom
-    if renda_periodica == "sim":
-        df = df[df["tipo_titulo"].str.contains("Juros Semestrais", case=False, na=False)]
+# Mapeamento perfil de risco -> coluna de score
+MAPA_PERFIL_SCORE = {
+    "conservador": "score_b",
+    "moderado": "score_a",
+    "arrojado": "score_c",
+}
 
-    # Selecao por objetivo + oscilacao
-    if objetivo == "reserva":
-        df = df[df["familia_normalizada"] == "SELIC"]
-        score_col = "score_b"
-        explicacao = (
-            "Para reserva de emergencia, o Tesouro Selic e a melhor escolha: "
-            "baixissima oscilacao e liquidez diaria."
-        )
-    elif objetivo == "curto":
-        if oscilacao == "conservador":
-            df = df[
-                df["familia_normalizada"].isin(["SELIC", "PRE", "PRE_JS"])
-                & (df["bucket_prazo"] == "CURTO")
-            ]
-            score_col = "score_b"
-            explicacao = (
-                "Curto prazo conservador: priorizamos Selic e Prefixados curtos, "
-                "ajustados por risco para minimizar oscilacao."
-            )
-        else:
-            df = df[
-                df["familia_normalizada"].isin(["PRE", "PRE_JS"])
-                & df["bucket_prazo"].isin(["CURTO", "INTER"])
-            ]
-            score_col = "score_a"
-            explicacao = (
-                "Curto prazo com tolerancia a oscilacao: Prefixados curtos/intermediarios "
-                "permitem capturar a taxa atual ate o vencimento."
-            )
-    elif objetivo == "medio":
-        df = df[
-            df["familia_normalizada"].isin(["PRE", "PRE_JS", "IPCA", "IPCA_JS"])
-            & (df["bucket_prazo"] == "INTER")
-        ]
-        score_col = "score_b"
-        explicacao = (
-            "Medio prazo: Prefixados ou IPCA+ intermediarios oferecem boa "
-            "relacao retorno/risco com horizonte de 2 a 5 anos."
-        )
-    elif objetivo == "longo":
-        df = df[
-            df["familia_normalizada"].isin(["IPCA", "IPCA_JS"])
-            & (df["bucket_prazo"] == "LONGO")
-        ]
-        score_col = "score_c"
-        explicacao = (
-            "Longo prazo: IPCA+ longo protege contra inflacao e o Score C "
-            "identifica titulos pagando acima da curva teorica."
-        )
-    elif objetivo == "aposentadoria":
-        df = df[
-            df["familia_normalizada"].isin(["IPCA", "IPCA_JS", "RENDA"])
-            & df["bucket_prazo"].isin(["LONGO", "ULTRA"])
-        ]
-        score_col = "score_c"
-        explicacao = (
-            "Aposentadoria: IPCA+ longo/ultralongo ou Renda+ entregam ganho real "
-            "sustentado para horizontes acima de 15 anos."
+# Familias com cupom semestral
+FAMILIAS_COM_CUPOM = {"PRE_JS", "IPCA_JS", "IGPM_JS"}
+
+# Mapeamento familia -> grupo amplo (nominal/real/pos_fixado)
+GRUPOS_AMPLOS = {
+    "SELIC": "pos_fixado",
+    "PRE": "nominal",
+    "PRE_JS": "nominal",
+    "IPCA": "real",
+    "IPCA_JS": "real",
+    "IGPM_JS": "real",
+    "EDUCA": "real",
+    "RENDA": "real",
+}
+
+
+def _expandir_buckets(buckets: list[str]) -> list[str]:
+    """Adiciona buckets adjacentes a uma lista existente."""
+    expandido = set(buckets)
+    for b in buckets:
+        if b in BUCKETS_ORDER:
+            i = BUCKETS_ORDER.index(b)
+            if i > 0:
+                expandido.add(BUCKETS_ORDER[i - 1])
+            if i < len(BUCKETS_ORDER) - 1:
+                expandido.add(BUCKETS_ORDER[i + 1])
+    return list(expandido)
+
+
+def _gerar_explicacao(melhor: pd.Series) -> str:
+    """Gera frase explicativa baseada nos atributos do titulo."""
+    razoes = []
+    if pd.notna(melhor.get("carry")) and melhor.get("carry", 0) > 0.05:
+        razoes.append("carry alto")
+    if pd.notna(melhor.get("rv_zscore")) and melhor.get("rv_zscore", 0) > 0:
+        razoes.append("posicao favoravel na curva")
+    if pd.notna(melhor.get("liquidez_norm")) and melhor.get("liquidez_norm", 0) > 0.7:
+        razoes.append("boa liquidez")
+    if not razoes:
+        razoes = ["a melhor combinacao de fatores disponivel"]
+
+    grupo = melhor.get("grupo_analitico", "?")
+    return (
+        f"Este titulo oferece {' e '.join(razoes)} dentro do grupo {grupo}."
+    )
+
+
+def _ordenar_e_montar(
+    df: pd.DataFrame, score_col: str, badge: str | None,
+) -> tuple[pd.Series, pd.DataFrame, str, str, str | None]:
+    """Ordena o DataFrame pelo score e retorna o resultado padronizado."""
+    df = df.copy()
+    if score_col in df.columns and df[score_col].isna().any():
+        df_ord = df.sort_values(
+            [score_col, "score_a"],
+            ascending=[False, False],
+            na_position="last",
         )
     else:
-        score_col = "score_a"
-        explicacao = ""
+        df_ord = df.sort_values(score_col, ascending=False)
 
-    if df.empty:
-        return None, pd.DataFrame(), score_col, (
-            "Nao ha titulos disponiveis com essa combinacao de filtros. "
-            "Tente alterar 'renda periodica' ou o objetivo."
+    df_ord = df_ord.reset_index(drop=True)
+    melhor = df_ord.iloc[0]
+    alternativas = df_ord.head(4)  # melhor + ate 3 alternativas
+    explicacao = _gerar_explicacao(melhor)
+    return melhor, alternativas, score_col, explicacao, badge
+
+
+def recomendar_titulo(
+    objetivo: str,
+    perfil_risco: str,
+    renda_periodica: str,
+    df_ranking: pd.DataFrame,
+) -> tuple[pd.Series, pd.DataFrame, str, str, str | None]:
+    """Recomenda um titulo com cascata de fallback que SEMPRE retorna resultado.
+
+    Returns:
+        (melhor, alternativas, score_col, explicacao, badge_fallback)
+    """
+    config = MAPA_OBJETIVO.get(objetivo, MAPA_OBJETIVO["medio"])
+    familias = config["familias"]
+    buckets = config["buckets"]
+
+    score_col = MAPA_PERFIL_SCORE.get(perfil_risco, "score_a")
+    # Se score_c selecionado mas todos NaN, usar score_a
+    if score_col == "score_c" and (
+        "score_c" not in df_ranking.columns or df_ranking["score_c"].isna().all()
+    ):
+        score_col = "score_a"
+
+    df_base = df_ranking.copy()
+    badge_fallback: str | None = None
+
+    # Filtro de cupom (com fallback se zerar)
+    if renda_periodica == "sim":
+        df_cupom = df_base[df_base["familia_normalizada"].isin(FAMILIAS_COM_CUPOM)]
+        df_teste = df_cupom[
+            df_cupom["familia_normalizada"].isin(familias)
+            & df_cupom["bucket_prazo"].isin(buckets)
+        ]
+        if df_teste.empty:
+            badge_fallback = (
+                "Nao ha titulos com juros semestrais para esse objetivo. "
+                "Mostrando melhor opcao sem cupom."
+            )
+        else:
+            df_base = df_cupom
+
+    # Nivel 1: familias + buckets ideais
+    df_n1 = df_base[
+        df_base["familia_normalizada"].isin(familias)
+        & df_base["bucket_prazo"].isin(buckets)
+    ]
+    if not df_n1.empty:
+        return _ordenar_e_montar(df_n1, score_col, badge_fallback)
+
+    # Nivel 2: familias + buckets adjacentes
+    buckets_exp = _expandir_buckets(buckets)
+    df_n2 = df_base[
+        df_base["familia_normalizada"].isin(familias)
+        & df_base["bucket_prazo"].isin(buckets_exp)
+    ]
+    if not df_n2.empty:
+        if badge_fallback is None:
+            badge_fallback = (
+                f"Buckets ideais sem opcoes. Expandindo para "
+                f"{', '.join(sorted(set(buckets_exp) - set(buckets)))}."
+            )
+        return _ordenar_e_montar(df_n2, score_col, badge_fallback)
+
+    # Nivel 3: grupo analitico amplo (nominal / real / pos_fixado)
+    grupos_alvo = {GRUPOS_AMPLOS.get(f, "real") for f in familias}
+    familias_grupo = [f for f, g in GRUPOS_AMPLOS.items() if g in grupos_alvo]
+    df_n3 = df_base[df_base["familia_normalizada"].isin(familias_grupo)]
+    if not df_n3.empty:
+        if badge_fallback is None:
+            badge_fallback = (
+                f"Filtros restritivos demais. Mostrando todo o grupo "
+                f"{'/'.join(sorted(grupos_alvo))}."
+            )
+        return _ordenar_e_montar(df_n3, score_col, badge_fallback)
+
+    # Nivel 4: melhor titulo geral
+    badge_fallback = (
+        "Nenhum titulo se encaixa perfeitamente no perfil. "
+        "Esta e a melhor oportunidade geral do dia."
+    )
+    return _ordenar_e_montar(df_ranking, score_col, badge_fallback)
+
+
+# Compatibilidade: alias para chamadas legadas
+selecionar_titulo_calculadora = recomendar_titulo
+
+
+def build_calculadora_dataset(df_historico: pd.DataFrame) -> pd.DataFrame:
+    """Constroi dataset para a calculadora a partir do snapshot mais recente.
+
+    Inclui TODOS os titulos do dia, mesmo os cujas celulas tem poucas
+    observacoes (e por isso nao entram no ranking principal). Calcula
+    posicao_celula, taxa_pp_12m e pu_compra_atual.
+    """
+    data_max = df_historico["data_base"].max()
+    snapshot = df_historico[df_historico["data_base"] == data_max].copy()
+
+    # Aliases para compatibilidade com a UI
+    snapshot["pu_compra_atual"] = snapshot["pu_compra_manha"]
+
+    # Posicao na celula (ranking por score_a dentro de cada celula_analitica)
+    snapshot["posicao_celula"] = (
+        snapshot.groupby("celula_analitica")["score_a"]
+        .rank(ascending=False, method="min")
+        .astype(float)
+    )
+    snapshot["posicao_global"] = (
+        snapshot["score_a"].rank(ascending=False, method="min").astype(float)
+    )
+
+    # Taxa em pp 12 meses
+    data_12m = data_max - pd.Timedelta(days=365)
+    snapshot["taxa_12m_atras"] = float("nan")
+    snapshot["taxa_pp_12m"] = float("nan")
+
+    for idx, row in snapshot.iterrows():
+        hist = df_historico[
+            (df_historico["tipo_titulo"] == row["tipo_titulo"])
+            & (df_historico["data_vencimento"] == row["data_vencimento"])
+            & (df_historico["data_base"] <= data_12m)
+        ].sort_values("data_base")
+        if hist.empty:
+            continue
+        taxa_antiga = float(hist.iloc[-1]["taxa_compra_manha"])
+        snapshot.at[idx, "taxa_12m_atras"] = taxa_antiga
+        snapshot.at[idx, "taxa_pp_12m"] = float(
+            row["taxa_compra_manha"] - taxa_antiga
         )
 
-    df = df.sort_values(score_col, ascending=False).reset_index(drop=True)
-    melhor = df.iloc[0]
-    alternativas = df.head(3)
-    return melhor, alternativas, score_col, explicacao
+    return snapshot.reset_index(drop=True)
 
 
 # =============================================================================
 # REGISTRAR CALLBACKS
 # =============================================================================
 
-def registrar_callbacks(app, df_ranking: pd.DataFrame, df_historico: pd.DataFrame):
+def registrar_callbacks(
+    app,
+    df_ranking: pd.DataFrame,
+    df_historico: pd.DataFrame,
+    df_calculadora: pd.DataFrame | None = None,
+):
     """Registra todos os callbacks no app Dash."""
+    # Se nao foi passado, construir on-the-fly
+    if df_calculadora is None:
+        df_calculadora = build_calculadora_dataset(df_historico)
 
     SCORE_LABELS = {
         "score_a": "Score A (base)",
@@ -714,49 +865,80 @@ def registrar_callbacks(app, df_ranking: pd.DataFrame, df_historico: pd.DataFram
         Input("calc-oscilacao-radio", "value"),
         Input("calc-renda-radio", "value"),
     )
-    def atualizar_calculadora(objetivo: str, oscilacao: str, renda: str):
-        if not objetivo or not oscilacao or not renda:
+    def atualizar_calculadora(objetivo: str, perfil: str, renda: str):
+        if not objetivo or not perfil or not renda:
             return html.Div()
 
-        melhor, alternativas, score_col, explicacao = selecionar_titulo_calculadora(
-            df_ranking, objetivo, oscilacao, renda,
+        melhor, alternativas, score_col, explicacao, badge_fallback = recomendar_titulo(
+            objetivo, perfil, renda, df_calculadora,
         )
         score_label = SCORE_LABELS.get(score_col, score_col)
-
-        if melhor is None:
-            return dbc.Alert(explicacao, color="warning")
 
         indexador = MAPA_INDEXADOR.get(str(melhor["tipo_titulo"]), "-")
         venc = pd.Timestamp(melhor["data_vencimento"]).strftime("%d/%m/%Y")
         pu = _formatar_moeda(melhor.get("pu_compra_atual", float("nan")))
+        prazo = (
+            f"{melhor['anos_ate_vencimento']:.1f} anos"
+            if pd.notna(melhor.get("anos_ate_vencimento"))
+            else "—"
+        )
+        pos_cel = (
+            int(melhor["posicao_celula"])
+            if pd.notna(melhor.get("posicao_celula"))
+            else "—"
+        )
+
+        # Taxa formatada conforme indexador
+        if indexador in ("IPCA", "IGP-M"):
+            taxa_display = f"{indexador} + {melhor['taxa_compra_manha']:.2f}% a.a."
+        elif indexador == "Selic":
+            taxa_display = f"Selic + {melhor['taxa_compra_manha']:.2f}% a.a."
+        else:
+            taxa_display = f"{melhor['taxa_compra_manha']:.2f}% a.a."
+
+        # Cor do card baseada no grupo amplo
+        grupo_amplo = GRUPOS_AMPLOS.get(str(melhor["familia_normalizada"]), "real")
+        cor_grupo = {
+            "pos_fixado": "info",
+            "nominal": "primary",
+            "real": "success",
+        }.get(grupo_amplo, "primary")
+
+        # Badge de fallback
+        badge_html = (
+            dbc.Alert(
+                [html.Strong("Nota: "), badge_fallback],
+                color="warning",
+                className="mb-3 py-2 small",
+            )
+            if badge_fallback
+            else None
+        )
 
         card_destaque = dbc.Card(
             dbc.CardBody(
                 [
-                    html.Div("Melhor opcao para voce hoje:", className="text-muted"),
+                    html.Div(
+                        "Melhor opcao para voce hoje:", className="text-muted"
+                    ),
                     html.H3(
-                        melhor["tipo_titulo"], className="text-primary mt-2 mb-2"
+                        melhor["tipo_titulo"],
+                        className=f"text-{cor_grupo} mt-2 mb-2",
                     ),
                     dbc.Row(
                         [
                             dbc.Col(
                                 [
-                                    html.Div("Indexador", className="small text-muted"),
-                                    html.H5(indexador),
+                                    html.Div("Taxa", className="small text-muted"),
+                                    html.H5(taxa_display),
                                 ],
-                                md=2,
-                            ),
-                            dbc.Col(
-                                [
-                                    html.Div("Taxa Compra", className="small text-muted"),
-                                    html.H5(f"{melhor['taxa_compra_manha']:.2f}%"),
-                                ],
-                                md=2,
+                                md=3,
                             ),
                             dbc.Col(
                                 [
                                     html.Div("Vencimento", className="small text-muted"),
                                     html.H5(venc),
+                                    html.Small(prazo, className="text-muted"),
                                 ],
                                 md=2,
                             ),
@@ -776,8 +958,10 @@ def registrar_callbacks(app, df_ranking: pd.DataFrame, df_historico: pd.DataFram
                             ),
                             dbc.Col(
                                 [
-                                    html.Div("Pos. Celula", className="small text-muted"),
-                                    html.H5(f"{int(melhor['posicao_celula'])}"),
+                                    html.Div(
+                                        "Pos. no grupo", className="small text-muted"
+                                    ),
+                                    html.H5(str(pos_cel)),
                                 ],
                                 md=2,
                             ),
@@ -787,17 +971,20 @@ def registrar_callbacks(app, df_ranking: pd.DataFrame, df_historico: pd.DataFram
                     dbc.Alert(explicacao, color="info", className="mb-0"),
                 ]
             ),
-            color="success",
+            color=cor_grupo,
             outline=True,
             className="mb-4 shadow",
         )
 
-        # Tabela de alternativas
-        if len(alternativas) > 1:
-            alt = alternativas.copy()
+        # Tabela de alternativas (excluindo o melhor)
+        outras = alternativas.iloc[1:] if len(alternativas) > 1 else pd.DataFrame()
+        if not outras.empty:
+            alt = outras.copy()
             alt["indexador"] = alt["tipo_titulo"].map(MAPA_INDEXADOR).fillna("-")
             alt["venc_str"] = alt["data_vencimento"].dt.strftime("%d/%m/%Y")
-            alt["score_str"] = alt[score_col].map(lambda v: f"{v:.3f}")
+            alt["score_str"] = alt[score_col].map(
+                lambda v: f"{v:.3f}" if pd.notna(v) else "—"
+            )
             alt["taxa_str"] = alt["taxa_compra_manha"].map(lambda v: f"{v:.2f}%")
 
             tabela = dbc.Table.from_dataframe(
@@ -821,11 +1008,12 @@ def registrar_callbacks(app, df_ranking: pd.DataFrame, df_historico: pd.DataFram
             )
             secao_alternativas = html.Div(
                 [
-                    html.H5("Top alternativas do mesmo grupo", className="mt-3 mb-2"),
+                    html.H5("Outras opcoes para voce", className="mt-3 mb-2"),
                     tabela,
                 ]
             )
         else:
             secao_alternativas = html.Div()
 
-        return html.Div([card_destaque, secao_alternativas])
+        componentes = [c for c in [badge_html, card_destaque, secao_alternativas] if c]
+        return html.Div(componentes)

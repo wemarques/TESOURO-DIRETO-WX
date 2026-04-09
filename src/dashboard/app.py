@@ -7,7 +7,11 @@ import dash_bootstrap_components as dbc
 import pandas as pd
 from dash import Input, Output, dcc, html
 
-from src.dashboard.callbacks import calcular_variacao_e_pu, registrar_callbacks
+from src.dashboard.callbacks import (
+    build_calculadora_dataset,
+    calcular_variacao_e_pu,
+    registrar_callbacks,
+)
 from src.dashboard.layouts import (
     metadados_card,
     navbar,
@@ -26,6 +30,9 @@ df_historico = pd.read_parquet(OUTPUTS_DIR / "base_analitica.parquet")
 
 # Pre-computar variacao 12M e pu_compra_atual no ranking
 df_ranking = calcular_variacao_e_pu(df_ranking, df_historico)
+
+# Dataset enriquecido para a calculadora (todos os titulos do dia)
+df_calculadora = build_calculadora_dataset(df_historico)
 
 # Metadados
 data_atualizacao = df_ranking["data_base"].max().strftime("%d/%m/%Y")
@@ -83,7 +90,7 @@ def renderizar_pagina(pathname: str):
 
 
 # === Registrar callbacks interativos ===
-registrar_callbacks(app, df_ranking, df_historico)
+registrar_callbacks(app, df_ranking, df_historico, df_calculadora)
 
 server = app.server
 
