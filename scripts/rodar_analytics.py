@@ -67,6 +67,17 @@ def main():
     df.to_parquet(DATA_PROCESSED / "base_analitica.parquet", index=False)
     ranking.to_parquet(DATA_OUTPUTS / "ranking_atual.parquet", index=False)
     ranking.to_csv(DATA_OUTPUTS / "ranking_atual.csv", index=False)
+
+    # Publicar base analitica em outputs/ para o dashboard consumir
+    cols_dashboard = [
+        "data_base", "tipo_titulo", "data_vencimento", "anos_ate_vencimento",
+        "familia_normalizada", "grupo_analitico", "bucket_prazo", "celula_analitica",
+        "taxa_compra_manha", "taxa_venda_manha", "pu_compra_manha", "pu_venda_manha",
+        "spread_compra_venda", "carry", "rv_zscore", "liquidez_norm",
+        "score_a", "score_b", "score_c",
+    ]
+    cols_existentes = [c for c in cols_dashboard if c in df.columns]
+    df[cols_existentes].to_parquet(DATA_OUTPUTS / "base_analitica.parquet", index=False)
     print(f"  ✓ Ranking salvo — {len(ranking)} títulos (Score A + B + C)")
 
     print("\n✅ Analytics concluído.\n")

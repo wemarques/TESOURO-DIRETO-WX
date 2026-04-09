@@ -6,6 +6,11 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 ## [2026-04-09]
 
 ### Adicionado
+- Suporte a deploy no Railway: `Procfile`, `runtime.txt`, `requirements.txt`, `railway.toml`, `.env.example`
+- `scripts/cron_atualizacao.py` para Railway Cron Job (lê `CRON_ENABLED`, executa pipeline ingestao+analytics, loga em stdout)
+- `docs/deploy-railway.md` com guia passo a passo: criação do projeto, variáveis de ambiente, volume persistente, cron job, troubleshooting
+- Função `_ensure_data_exists()` em `src/dashboard/app.py` que cria diretórios `data/` no boot e dispara `rodar_ingestao.py` + `rodar_analytics.py` no primeiro deploy
+- `app.py` lê `PORT`, `HOST` e `DEBUG` de variáveis de ambiente para funcionar tanto local quanto em produção
 - GitHub Action `.github/workflows/ci.yml` que roda pytest e ruff a cada push/pull-request na branch `main`. Usa `ubuntu-latest`, Python 3.11 e cache de pip
 - Setup completo do Task Scheduler do Windows: `scripts/task_scheduler_setup.bat` (entry point para o agendador), `scripts/instalar_tarefa_windows.bat` e `scripts/desinstalar_tarefa_windows.bat` (helpers via `schtasks`), `docs/setup-task-scheduler.md` (guia passo a passo) (`67ac351`)
 - Página `/calculadora` "Melhor Título do Dia" no dashboard com 3 perguntas (objetivo, perfil de risco, renda periódica), card de destaque do título recomendado e tabela de alternativas (`1f27c84`)
@@ -20,6 +25,7 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 - Flag `celula_pequena` em `src/analytics/ranking.py` para marcar (em vez de excluir) títulos de células pequenas (`bb0a80c`)
 
 ### Alterado
+- `scripts/rodar_analytics.py` agora também publica `data/outputs/base_analitica.parquet` (consumido pelo dashboard), eliminando passo manual de cópia entre runs
 - Imports reorganizados em `src/dashboard/app.py`, `src/ingestao/{download,monitor,registro}.py`, `src/utils/config.py`, `src/dashboard/layouts.py`, `src/analytics/score.py` e `src/dashboard/callbacks.py` para passar no `ruff check` (regras `I001` isort e `F401` unused-import)
 - Quebras de linha em `src/ingestao/validacao.py` (assinatura `validar_estrutural`) e em chamadas `_stat_card`/`_info_row` em `src/dashboard/callbacks.py` para respeitar limite de 100 colunas
 

@@ -1,5 +1,8 @@
 """App principal do dashboard Tesouro Direto WX."""
 
+import os
+import subprocess
+import sys
 from pathlib import Path
 
 import dash
@@ -22,12 +25,70 @@ from src.dashboard.layouts import (
     pagina_titulo,
 )
 from src.ingestao.registro import obter_ultima_ingestao
+from src.utils.constants import (
+    DATA_AUDIT,
+    DATA_ENRIQUECIDO,
+    DATA_OUTPUTS,
+    DATA_PADRONIZADO,
+    DATA_PROCESSED,
+    DATA_RAW,
+)
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
+
+def _ensure_data_exists():
+    """Garante que diretorios e arquivos de dados existem.
+
+    Em ambientes novos (ex: primeiro deploy no Railway), cria os
+    diretorios necessarios e executa o pipeline de ingestao + analytics
+    se ainda nao houver dados publicados.
+    """
+    diretorios = [
+        DATA_RAW,
+        DATA_PADRONIZADO,
+        DATA_ENRIQUECIDO,
+        DATA_PROCESSED,
+        DATA_OUTPUTS,
+        DATA_AUDIT,
+    ]
+    for d in diretorios:
+        d.mkdir(parents=True, exist_ok=True)
+
+    ranking_path = DATA_OUTPUTS / "ranking_atual.parquet"
+    base_path = DATA_OUTPUTS / "base_analitica.parquet"
+    if ranking_path.exists() and base_path.exists():
+        return
+
+    print("[boot] Sem dados em data/outputs/ - executando pipeline inicial...")
+    scripts_dir = PROJECT_ROOT / "scripts"
+    env = {**os.environ, "PYTHONIOENCODING": "utf-8"}
+
+    for script in ["rodar_ingestao.py", "rodar_analytics.py"]:
+        print(f"[boot] Rodando {script}...")
+        result = subprocess.run(
+            [sys.executable, str(scripts_dir / script)],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=900,
+            env=env,
+        )
+        print(result.stdout)
+        if result.returncode != 0:
+            print(f"[boot] {script} falhou:\n{result.stderr}")
+            raise RuntimeError(f"Pipeline inicial falhou em {script}")
+
+    print("[boot] Pipeline inicial concluido")
+
+
+# Garantir dados antes de carregar
+_ensure_data_exists()
 
 # === Carregar dados de data/outputs/ ===
-OUTPUTS_DIR = Path(__file__).resolve().parents[2] / "data" / "outputs"
-
-df_ranking = pd.read_parquet(OUTPUTS_DIR / "ranking_atual.parquet")
-df_historico = pd.read_parquet(OUTPUTS_DIR / "base_analitica.parquet")
+df_ranking = pd.read_parquet(DATA_OUTPUTS / "ranking_atual.parquet")
+df_historico = pd.read_parquet(DATA_OUTPUTS / "base_analitica.parquet")
 
 # Pre-computar variacao 12M e pu_compra_atual no ranking
 df_ranking = calcular_variacao_e_pu(df_ranking, df_historico)
@@ -94,4 +155,7 @@ registrar_callbacks(app, df_ranking, df_historico, df_calculadora)
 server = app.server
 
 if __name__ == "__main__":
-    app.run(debug=True, host="127.0.0.1", port=8050)
+    port = int(os.environ.get("PORT", 8050))
+    host = os.environ.get("HOST", "0.0.0.0")
+    debug = os.environ.get("DEBUG", "false").lower() == "true"
+    app.run(debug=debug, host=host, port=port)
