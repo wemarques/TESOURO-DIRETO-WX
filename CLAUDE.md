@@ -212,6 +212,7 @@ Score_C = 0.30 × Carry_Norm + 0.40 × Residuo_Curva_Norm + 0.15 × Rolldown_Nor
   - `refactor:` refatoração
   - `test:` testes
   - `data:` mudança em dados ou schema
+- Todo commit deve ter entrada correspondente no `CHANGELOG.md` com data, categoria (`Adicionado` / `Corrigido` / `Alterado`) e descrição clara da mudança.
 
 ### Logs
 - Toda operação de ingestão gera log com: horário, duração, status, hash
