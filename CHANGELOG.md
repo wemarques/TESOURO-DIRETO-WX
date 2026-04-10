@@ -5,6 +5,14 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 ## [2026-04-09]
 
+### Corrigido
+- Dropdowns com fundo branco no mobile tornavam o texto invisível. Reforçados overrides em `src/dashboard/assets/style.css`:
+  - `color-scheme: dark` global em `html`
+  - Seletores nativos `input`, `select`, `textarea`, `button` forçados para o tema dark com `!important`
+  - Cobertura ampla de seletores Dash: `.Select`, `.Select-control`, `.Select-menu-outer`, `.VirtualizedSelectOption`, `.dash-dropdown` (todos os estados: focado/aberto/hover/selecionado)
+  - Media query `@media (max-width: 768px)` com reforço adicional para garantir fundo `#1A2736`
+  - Fix de autofill do Chrome (webkit) para não virar branco
+
 ### Alterado
 - **Redesign completo do dashboard** com tema "Financial Intelligence" (dark editorial inspirado em Bloomberg Terminal):
   - Novo `src/dashboard/assets/style.css` (~900 linhas) com design system completo: paleta dark (#0F1923/#1A2736), tipografia DM Sans + JetBrains Mono via Google Fonts, CSS variables, gradientes, transições, focus rings WCAG AA

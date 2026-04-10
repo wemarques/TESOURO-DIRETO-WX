@@ -67,6 +67,10 @@
 
 * { box-sizing: border-box; }
 
+html {
+  color-scheme: dark;
+}
+
 html, body {
   margin: 0;
   padding: 0;
@@ -77,6 +81,29 @@ html, body {
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Forcar tema dark em todos os inputs e selects nativos */
+input, select, textarea, button {
+  background-color: var(--bg-card) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-color) !important;
+  font-family: var(--font-display);
+  color-scheme: dark;
+}
+
+input::placeholder, textarea::placeholder {
+  color: var(--text-secondary) !important;
+  opacity: 0.7;
+}
+
+/* Autofill do navegador (Chrome) */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--text-primary) !important;
+  -webkit-box-shadow: 0 0 0 30px var(--bg-card) inset !important;
+  caret-color: var(--text-primary) !important;
 }
 
 #react-entry-point,
@@ -439,77 +466,159 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* ============================================
-   DROPDOWN OVERRIDES
+   DROPDOWN OVERRIDES (Dash Core Components)
    ============================================ */
 
+/* Wrapper container */
+.dash-dropdown,
+.dash-dropdown * {
+  color-scheme: dark;
+}
+
+/* Control (o "caixa" visivel antes de abrir) */
+.Select,
 .Select-control,
-.Select.is-focused .Select-control,
-.dash-dropdown .Select-control {
+.Select.is-searchable.is-open > .Select-control,
+.Select.is-open > .Select-control,
+.Select.is-focused > .Select-control,
+.Select.is-focused:not(.is-open) > .Select-control,
+.dash-dropdown .Select-control,
+.dash-dropdown .Select,
+div[class*="Select--single"] .Select-control,
+div[class*="Select--multi"] .Select-control {
   background-color: var(--bg-card) !important;
+  background: var(--bg-card) !important;
   border: 1px solid var(--border-color) !important;
   border-radius: var(--radius-md) !important;
   color: var(--text-primary) !important;
   box-shadow: none !important;
-  height: 42px !important;
+  min-height: 42px !important;
+  height: auto !important;
   transition: var(--transition);
 }
 
-.Select-control:hover { border-color: var(--accent-primary) !important; }
+.Select-control:hover {
+  border-color: var(--accent-primary) !important;
+}
 
 .Select.is-focused:not(.is-open) > .Select-control {
   border-color: var(--accent-primary) !important;
   box-shadow: 0 0 0 2px rgba(0, 212, 170, 0.15) !important;
 }
 
+/* Texto do valor selecionado e placeholder */
+.Select-value,
 .Select-value-label,
-.Select-input > input,
-.Select-placeholder {
+.Select .Select-value,
+.Select .Select-value-label,
+.dash-dropdown .Select-value,
+.dash-dropdown .Select-value-label {
   color: var(--text-primary) !important;
+  background-color: transparent !important;
   font-family: var(--font-display) !important;
 }
 
-.Select-menu-outer {
+.Select-placeholder,
+.Select .Select-placeholder,
+.dash-dropdown .Select-placeholder {
+  color: var(--text-secondary) !important;
+  font-family: var(--font-display) !important;
+}
+
+/* Input interno (campo de busca) */
+.Select-input,
+.Select-input > input,
+.Select .Select-input > input,
+.dash-dropdown .Select-input > input {
+  background-color: transparent !important;
+  background: transparent !important;
+  color: var(--text-primary) !important;
+  border: none !important;
+  box-shadow: none !important;
+  font-family: var(--font-display) !important;
+}
+
+/* Arrow (seta do dropdown) */
+.Select-arrow-zone,
+.Select-arrow,
+.dash-dropdown .Select-arrow-zone {
+  color: var(--text-secondary) !important;
+}
+
+.Select-arrow {
+  border-color: var(--text-secondary) transparent transparent !important;
+}
+
+.Select.is-open .Select-arrow {
+  border-color: transparent transparent var(--text-secondary) !important;
+}
+
+.Select-clear-zone, .Select-clear { display: none !important; }
+
+/* Menu suspenso (opcoes abertas) */
+.Select-menu-outer,
+.Select .Select-menu-outer,
+.dash-dropdown .Select-menu-outer,
+.VirtualizedSelectOption {
   background-color: var(--bg-card) !important;
+  background: var(--bg-card) !important;
   border: 1px solid var(--border-color) !important;
   border-radius: var(--radius-md) !important;
   box-shadow: var(--shadow-md) !important;
   margin-top: 4px !important;
-}
-
-.Select-menu, .VirtualizedSelectFocusedOption,
-.VirtualizedSelectOption {
-  background-color: var(--bg-card) !important;
   color: var(--text-primary) !important;
+  z-index: 1001 !important;
 }
 
-.VirtualizedSelectFocusedOption {
-  background-color: var(--bg-card-hover) !important;
-}
-
-.Select-option {
+.Select-menu,
+.Select .Select-menu,
+.dash-dropdown .Select-menu {
   background-color: var(--bg-card) !important;
+  background: var(--bg-card) !important;
+}
+
+/* Opcoes individuais do menu */
+.Select-option,
+.VirtualizedSelectOption,
+.VirtualizedSelectFocusedOption,
+.Select .Select-option,
+.dash-dropdown .Select-option {
+  background-color: var(--bg-card) !important;
+  background: var(--bg-card) !important;
   color: var(--text-primary) !important;
   padding: 10px 12px !important;
   font-family: var(--font-display) !important;
+  cursor: pointer !important;
 }
 
-.Select-option:hover, .Select-option.is-focused {
+.Select-option:hover,
+.Select-option.is-focused,
+.VirtualizedSelectFocusedOption,
+.Select .Select-option.is-focused,
+.dash-dropdown .Select-option:hover,
+.dash-dropdown .Select-option.is-focused {
   background-color: var(--bg-card-hover) !important;
+  background: var(--bg-card-hover) !important;
+  color: var(--text-primary) !important;
 }
 
-.Select-option.is-selected {
+.Select-option.is-selected,
+.VirtualizedSelectSelectedOption,
+.Select .Select-option.is-selected {
   background-color: rgba(0, 212, 170, 0.1) !important;
+  background: rgba(0, 212, 170, 0.1) !important;
   color: var(--accent-primary) !important;
 }
 
-.Select-arrow-zone, .Select-arrow {
+.Select-noresults {
   color: var(--text-secondary) !important;
-  border-color: var(--text-secondary) transparent transparent !important;
+  background-color: var(--bg-card) !important;
+  padding: 10px 12px !important;
 }
 
-.Select-clear-zone, .Select-clear { display: none; }
-
-.Select--multi .Select-value {
+/* Multi-select (tags) */
+.Select--multi .Select-value,
+.Select--multi .Select .Select-value {
   background-color: rgba(0, 212, 170, 0.15) !important;
   color: var(--accent-primary) !important;
   border: 1px solid var(--accent-primary) !important;
@@ -518,6 +627,40 @@ h1, h2, h3, h4, h5, h6 {
 
 .Select--multi .Select-value-icon {
   border-right-color: var(--accent-primary) !important;
+  color: var(--accent-primary) !important;
+}
+
+.Select--multi .Select-value-icon:hover {
+  background-color: rgba(0, 212, 170, 0.3) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Virtual scrolling wrapper (menu interno) */
+.VirtualizedSelectFocusedOption,
+.ReactVirtualized__Grid,
+.ReactVirtualized__Grid__innerScrollContainer {
+  background-color: var(--bg-card) !important;
+}
+
+/* Mobile: reforco extra para garantir fundo dark */
+@media (max-width: 768px) {
+  .Select-control,
+  .Select-menu-outer,
+  .Select-option,
+  .VirtualizedSelectOption,
+  .dash-dropdown .Select-control,
+  .dash-dropdown .Select-menu-outer {
+    background-color: var(--bg-card) !important;
+    background: var(--bg-card) !important;
+    color: var(--text-primary) !important;
+  }
+
+  select, input, textarea {
+    background-color: var(--bg-card) !important;
+    color: var(--text-primary) !important;
+    -webkit-appearance: none;
+    appearance: none;
+  }
 }
 
 /* ============================================
