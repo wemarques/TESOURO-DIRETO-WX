@@ -5,6 +5,21 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 ## [2026-04-09]
 
+### Alterado
+- **Redesign completo do dashboard** com tema "Financial Intelligence" (dark editorial inspirado em Bloomberg Terminal):
+  - Novo `src/dashboard/assets/style.css` (~900 linhas) com design system completo: paleta dark (#0F1923/#1A2736), tipografia DM Sans + JetBrains Mono via Google Fonts, CSS variables, gradientes, transições, focus rings WCAG AA
+  - Novo `src/dashboard/plotly_theme.py` com template `tdwx_dark` registrado como padrão e mapa de cores por família (`CORES_FAMILIA`)
+  - Navbar customizada com logo "TD" + brand + 5 links + hamburger mobile (toggle via callback `toggle_menu_mobile`)
+  - Status bar fina (substitui `metadados_card`) com bolinha pulsante verde/amarela/vermelha por frescor de ingestão
+  - Página `/` (Ranking): page header, 4 summary cards (Melhor Score / Maior Taxa / Melhor Liquidez / Total), gráfico de barras com cores por família, tabela com hover dark
+  - Página `/calculadora`: 3 question cards com ícones (🎯 📊 💰), result hero com badge "Recomendação do dia", taxa em destaque, fallback note estilizada
+  - Página `/titulo`: grid 2 colunas (info card + chart), `tdwx-stats-grid` com 6 stat cards, card "Comparação 12 meses" com efeito no preço (🛒 / ⚠️)
+  - Página `/series`: filtros + curva NSS com cores accent
+  - Página `/guia`: accordion dark com `--bs-accordion-bg` overrides
+  - Todos os charts plotly migrados de `plotly_white` para `tdwx_dark`
+  - Layout responsivo: grid 12 col desktop → empilhado mobile, breakpoints 600px/768px/1024px/1200px
+  - Skip-to-content link, `aria-label` no hamburger, `<main>` semântico
+
 ### Adicionado
 - Suporte a deploy no Railway: `Procfile`, `runtime.txt`, `requirements.txt`, `railway.toml`, `.env.example`
 - `scripts/cron_atualizacao.py` para Railway Cron Job (lê `CRON_ENABLED`, executa pipeline ingestao+analytics, loga em stdout)

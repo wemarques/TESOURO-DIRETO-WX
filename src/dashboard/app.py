@@ -8,21 +8,23 @@ from pathlib import Path
 import dash
 import dash_bootstrap_components as dbc
 import pandas as pd
-from dash import Input, Output, dcc, html
+from dash import Input, Output, State, dcc, html
 
+# Importacao registra o template plotly 'tdwx_dark' como padrao
+from src.dashboard import plotly_theme  # noqa: F401
 from src.dashboard.callbacks import (
     build_calculadora_dataset,
     calcular_variacao_e_pu,
     registrar_callbacks,
 )
 from src.dashboard.layouts import (
-    metadados_card,
     navbar,
     pagina_calculadora,
     pagina_guia,
     pagina_ranking,
     pagina_series,
     pagina_titulo,
+    status_bar,
 )
 from src.ingestao.registro import obter_ultima_ingestao
 from src.utils.constants import (
@@ -104,6 +106,38 @@ familias = sorted(df_ranking["familia_normalizada"].unique().tolist())
 titulos_unicos = sorted(df_historico["tipo_titulo"].unique().tolist())
 grupos_analiticos = sorted(df_historico["grupo_analitico"].unique().tolist())
 
+
+def _build_summary_stats(df):
+    """Calcula stats de resumo para os summary cards do ranking."""
+    if df.empty:
+        return {}
+
+    melhor_score_row = df.loc[df["score_a"].idxmax()]
+    maior_taxa_row = df.loc[df["taxa_compra_manha"].idxmax()]
+    melhor_liq_row = df.loc[df["liquidez_norm"].idxmax()]
+
+    return {
+        "melhor_score_valor": f"{melhor_score_row['score_a']:.3f}",
+        "melhor_score_titulo": (
+            f"{melhor_score_row['tipo_titulo']} "
+            f"{melhor_score_row['data_vencimento'].strftime('%Y')}"
+        ),
+        "maior_taxa_valor": f"{maior_taxa_row['taxa_compra_manha']:.2f}%",
+        "maior_taxa_titulo": (
+            f"{maior_taxa_row['tipo_titulo']} "
+            f"{maior_taxa_row['data_vencimento'].strftime('%Y')}"
+        ),
+        "melhor_liquidez_valor": f"{melhor_liq_row['liquidez_norm']:.2f}",
+        "melhor_liquidez_titulo": (
+            f"{melhor_liq_row['tipo_titulo']} "
+            f"{melhor_liq_row['data_vencimento'].strftime('%Y')}"
+        ),
+        "total": total_titulos,
+    }
+
+
+summary_stats = _build_summary_stats(df_ranking)
+
 # Info da última ingestão (se disponível)
 ultima_ingestao = obter_ultima_ingestao()
 info_ingestao = {
@@ -122,12 +156,10 @@ app = dash.Dash(
 app.layout = html.Div(
     [
         dcc.Location(id="url", refresh=False),
+        html.A("Pular para o conteúdo", href="#main-content", className="skip-to-content"),
         navbar(),
-        dbc.Container(
-            metadados_card(data_atualizacao, total_titulos, total_registros, info_ingestao),
-            fluid=True,
-        ),
-        html.Div(id="page-content"),
+        status_bar(data_atualizacao, total_titulos, total_registros, info_ingestao),
+        html.Main(html.Div(id="page-content"), id="main-content"),
     ]
 )
 
@@ -146,7 +178,22 @@ def renderizar_pagina(pathname: str):
         return pagina_calculadora()
     if pathname == "/guia":
         return pagina_guia()
-    return pagina_ranking(familias)
+    return pagina_ranking(familias, summary_stats)
+
+
+# === Toggle hamburger menu mobile ===
+@app.callback(
+    Output("tdwx-nav-links", "className"),
+    Input("tdwx-hamburger-btn", "n_clicks"),
+    State("tdwx-nav-links", "className"),
+    prevent_initial_call=True,
+)
+def toggle_menu_mobile(n_clicks, current_class):
+    if not current_class:
+        return "tdwx-nav-links"
+    if "show" in current_class:
+        return "tdwx-nav-links"
+    return "tdwx-nav-links show"
 
 
 # === Registrar callbacks interativos ===

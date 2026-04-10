@@ -6,7 +6,10 @@ import plotly.express as px
 import plotly.graph_objects as go
 from dash import Input, Output, html, no_update
 
+# Importacao registra o template plotly 'tdwx_dark' como padrao
+from src.dashboard import plotly_theme  # noqa: F401
 from src.dashboard.layouts import NOMES_FAMILIA
+from src.dashboard.plotly_theme import CORES_FAMILIA
 from src.utils.constants import IPCA_ATUAL
 
 MAPA_INDEXADOR = {
@@ -76,30 +79,24 @@ def _formatar_moeda(v: float) -> str:
 
 
 def _info_row(label: str, value: str) -> html.Div:
-    """Linha de informacao para o card de titulo."""
+    """Linha de informacao para o card de titulo (estilo dark)."""
     return html.Div(
         [
-            html.Span(f"{label}: ", className="fw-bold text-muted"),
-            html.Span(value),
+            html.Span(label, className="tdwx-info-label"),
+            html.Span(value, className="tdwx-info-value"),
         ],
-        className="mb-1",
+        className="tdwx-info-row",
     )
 
 
-def _stat_card(titulo: str, valor: str, cor: str = "primary", subtitulo: str = "") -> dbc.Col:
-    """Card pequeno com estatistica."""
-    return dbc.Col(
-        dbc.Card(
-            dbc.CardBody(
-                [
-                    html.Div(titulo, className="text-muted small"),
-                    html.H5(valor, className=f"text-{cor} mb-0 mt-1"),
-                    html.Small(subtitulo, className="text-muted") if subtitulo else None,
-                ]
-            ),
-            className="shadow-sm h-100",
-        ),
-        md=2,
+def _stat_card(label: str, value: str, variant: str = "") -> html.Div:
+    """Card pequeno de estatistica (estilo dark)."""
+    return html.Div(
+        [
+            html.Div(label, className="tdwx-stat-label"),
+            html.Div(value, className=f"tdwx-stat-value {variant}"),
+        ],
+        className="tdwx-stat-card",
     )
 
 
@@ -451,20 +448,23 @@ def registrar_callbacks(
             x="titulo_label",
             y=score_col,
             color="familia_normalizada",
-            color_discrete_sequence=px.colors.qualitative.Set2,
+            color_discrete_map=CORES_FAMILIA,
             labels={
-                "titulo_label": "Titulo",
+                "titulo_label": "",
                 score_col: score_label,
-                "familia_normalizada": "Familia",
+                "familia_normalizada": "",
             },
-            title=f"{score_label} por Titulo",
+            title=f"{score_label} por título",
         )
         fig.update_layout(
             xaxis_tickangle=-45,
-            height=450,
-            margin=dict(b=120),
-            template="plotly_white",
+            height=460,
+            margin=dict(b=140, t=60),
+            template="tdwx_dark",
+            showlegend=True,
+            legend=dict(orientation="h", yanchor="bottom", y=-0.45, x=0),
         )
+        fig.update_traces(marker_line_width=0)
 
         # Colunas derivadas para apresentacao
         df["indexador"] = df["tipo_titulo"].map(MAPA_INDEXADOR).fillna("-")
@@ -541,7 +541,8 @@ def registrar_callbacks(
         if not titulos:
             return go.Figure().update_layout(
                 title="Selecione titulos para visualizar",
-                template="plotly_white",
+                template="tdwx_dark",
+                height=500,
             )
 
         df = df_historico[df_historico["tipo_titulo"].isin(titulos)].copy()
@@ -560,17 +561,19 @@ def registrar_callbacks(
             y="taxa_compra_manha",
             color="titulo_label",
             labels={
-                "data_base": "Data",
+                "data_base": "",
                 "taxa_compra_manha": "Taxa Compra (% a.a.)",
-                "titulo_label": "Titulo",
+                "titulo_label": "",
             },
-            title="Evolucao da Taxa de Compra",
+            title="Evolução da Taxa de Compra",
         )
         fig.update_layout(
             height=500,
-            template="plotly_white",
+            template="tdwx_dark",
             hovermode="x unified",
+            legend=dict(orientation="h", yanchor="bottom", y=-0.25, x=0),
         )
+        fig.update_traces(line=dict(width=2.5))
         return fig
 
     # =========================================================================
@@ -586,7 +589,8 @@ def registrar_callbacks(
         if not grupo or not opcoes:
             return go.Figure().update_layout(
                 title="Selecione um grupo analitico",
-                template="plotly_white",
+                template="tdwx_dark",
+                height=480,
             )
 
         from src.analytics.curva import obter_curva_snapshot
@@ -596,9 +600,9 @@ def registrar_callbacks(
 
         if resultado is None:
             fig.update_layout(
-                title=f"Curva indisponivel para {grupo} (pontos insuficientes)",
-                template="plotly_white",
-                height=450,
+                title=f"Curva indisponível para {grupo} (pontos insuficientes)",
+                template="tdwx_dark",
+                height=480,
             )
             return fig
 
@@ -608,7 +612,8 @@ def registrar_callbacks(
                 y=resultado["taxas_obs"],
                 mode="markers",
                 name="Taxas observadas",
-                marker=dict(size=10, color="#2196F3"),
+                marker=dict(size=12, color="#4DA6FF",
+                            line=dict(width=2, color="#1A2736")),
             ))
 
         if "curva" in opcoes:
@@ -616,20 +621,20 @@ def registrar_callbacks(
                 x=resultado["prazos_plot"],
                 y=resultado["taxas_plot"],
                 mode="lines",
-                name="Curva NSS ajustada",
-                line=dict(color="#FF5722", width=2.5),
+                name="Curva NSS",
+                line=dict(color="#00D4AA", width=3),
             ))
 
         params = resultado["params"]
         fig.update_layout(
-            title=f"Estrutura a Termo - {grupo} (RMSE: {params.rmse:.4f})",
+            title=f"Estrutura a termo — {grupo} (RMSE: {params.rmse:.4f})",
             xaxis_title="Prazo (anos)",
             yaxis_title="Taxa (% a.a.)",
-            template="plotly_white",
-            height=450,
+            template="tdwx_dark",
+            height=480,
             hovermode="x unified",
+            legend=dict(orientation="h", yanchor="bottom", y=-0.2, x=0),
         )
-
         return fig
 
     # =========================================================================
@@ -646,9 +651,9 @@ def registrar_callbacks(
         Input("titulo-periodo-dropdown", "value"),
     )
     def atualizar_titulo_individual(titulo: str | None, periodo_dias: int):
-        fig_vazia = go.Figure().update_layout(template="plotly_white")
+        fig_vazia = go.Figure().update_layout(template="tdwx_dark", height=350)
         if not titulo:
-            return html.P("Selecione um titulo"), html.Div(), fig_vazia, fig_vazia, fig_vazia
+            return html.P("Selecione um título"), html.Div(), fig_vazia, fig_vazia, fig_vazia
 
         df_full = df_historico[df_historico["tipo_titulo"] == titulo].sort_values("data_base")
         if df_full.empty:
@@ -706,104 +711,95 @@ def registrar_callbacks(
                 return "—"
             return f"{v:+.2f}%"
 
-        stats_row = dbc.Row(
+        stats_row = html.Div(
             [
-                _stat_card("PU Min 52s", _formatar_moeda(pu_min), "secondary"),
-                _stat_card("PU Max 52s", _formatar_moeda(pu_max), "secondary"),
+                _stat_card("PU Min 52s", _formatar_moeda(pu_min)),
+                _stat_card("PU Max 52s", _formatar_moeda(pu_max)),
                 _stat_card(
                     "Taxa Min 52s",
                     f"{taxa_min:.2f}%" if pd.notna(taxa_min) else "—",
-                    "secondary",
                 ),
                 _stat_card(
                     "Taxa Max 52s",
                     f"{taxa_max:.2f}%" if pd.notna(taxa_max) else "—",
-                    "secondary",
                 ),
                 _stat_card(
-                    "Valor. 12M",
+                    "Valoriz. 12M",
                     _fmt_pct(valorizacao_12m),
                     "success" if (pd.notna(valorizacao_12m) and valorizacao_12m >= 0) else "danger",
                 ),
                 _stat_card(
-                    "Valor. mes",
+                    "Valoriz. mês",
                     _fmt_pct(valorizacao_mes),
                     "success" if (pd.notna(valorizacao_mes) and valorizacao_mes >= 0) else "danger",
                 ),
             ],
-            className="g-2",
+            className="tdwx-stats-grid",
         )
 
         # Card de comparacao 12 meses com efeito no preco
         if pd.isna(pp_12m):
             efeito_icone = ""
-            efeito_texto = "Sem dado de 12 meses atras"
-            efeito_cor = "secondary"
+            efeito_texto = "Sem dado de 12 meses atrás"
+            efeito_cor = ""
         elif pp_12m > 0:
             efeito_icone = "🛒"
-            efeito_texto = "titulo ficou mais barato (oportunidade para compra)"
-            efeito_cor = "primary"
+            efeito_texto = "título ficou mais barato (oportunidade para compra)"
+            efeito_cor = "success"
         elif pp_12m < 0:
             efeito_icone = "⚠️"
-            efeito_texto = "titulo ficou mais caro (menos atrativo para entrada agora)"
+            efeito_texto = "título ficou mais caro (menos atrativo para entrada)"
             efeito_cor = "warning"
         else:
             efeito_icone = "="
-            efeito_texto = "preco praticamente inalterado"
-            efeito_cor = "secondary"
+            efeito_texto = "preço praticamente inalterado"
+            efeito_cor = ""
 
-        card_12m = dbc.Card(
-            dbc.CardBody(
-                [
-                    html.H6(
-                        "Comparacao 12 meses (taxa)",
-                        className="card-title text-muted",
-                    ),
-                    dbc.Row(
-                        [
-                            dbc.Col(
-                                [
-                                    html.Div("Taxa ha 12 meses", className="small text-muted"),
-                                    html.H5(
-                                        f"{taxa_antiga:.2f}%" if pd.notna(taxa_antiga) else "—",
-                                    ),
-                                ],
-                                md=3,
-                            ),
-                            dbc.Col(
-                                [
-                                    html.Div("Taxa hoje", className="small text-muted"),
-                                    html.H5(f"{taxa_atual:.2f}%"),
-                                ],
-                                md=3,
-                            ),
-                            dbc.Col(
-                                [
-                                    html.Div("Variacao", className="small text-muted"),
-                                    html.H5(_formatar_pp(pp_12m)),
-                                ],
-                                md=3,
-                            ),
-                            dbc.Col(
-                                [
-                                    html.Div(
-                                        "Efeito no preco", className="small text-muted"
-                                    ),
-                                    html.H6(
-                                        [
-                                            html.Span(efeito_icone, className="me-2"),
-                                            efeito_texto,
-                                        ],
-                                        className=f"text-{efeito_cor}",
-                                    ),
-                                ],
-                                md=3,
-                            ),
-                        ],
-                    ),
-                ]
-            ),
-            className="shadow-sm mt-3",
+        card_12m = html.Div(
+            [
+                html.H6("Comparação 12 meses (taxa)", className="tdwx-12m-title"),
+                html.Div(
+                    [
+                        _stat_card(
+                            "Taxa há 12 meses",
+                            f"{taxa_antiga:.2f}%" if pd.notna(taxa_antiga) else "—",
+                        ),
+                        _stat_card("Taxa hoje", f"{taxa_atual:.2f}%"),
+                        _stat_card(
+                            "Variação",
+                            _formatar_pp(pp_12m),
+                            "warning"
+                            if pd.notna(pp_12m) and pp_12m < 0
+                            else "success",
+                        ),
+                        html.Div(
+                            [
+                                html.Div(
+                                    "Efeito no preço", className="tdwx-stat-label"
+                                ),
+                                html.Div(
+                                    [
+                                        html.Span(
+                                            efeito_icone,
+                                            style={
+                                                "marginRight": "6px",
+                                                "fontSize": "16px",
+                                            },
+                                        ),
+                                        html.Span(
+                                            efeito_texto, style={"fontSize": "12px"}
+                                        ),
+                                    ],
+                                    className=f"tdwx-stat-value {efeito_cor}",
+                                ),
+                            ],
+                            className="tdwx-stat-card",
+                        ),
+                    ],
+                    className="tdwx-12m-grid",
+                ),
+            ],
+            className="tdwx-12m-card",
         )
 
         stats_div = html.Div([stats_row, card_12m])
@@ -816,11 +812,10 @@ def registrar_callbacks(
 
         # Card de informacoes
         indexador = MAPA_INDEXADOR.get(titulo, "-")
-        card_body = dbc.CardBody(
+        card_body = html.Div(
             [
-                html.H5(titulo, className="card-title"),
-                html.Hr(),
-                _info_row("Familia", NOMES_FAMILIA.get(
+                html.H4(titulo, className="tdwx-info-title"),
+                _info_row("Família", NOMES_FAMILIA.get(
                     str(ultimo["familia_normalizada"]), str(ultimo["familia_normalizada"])
                 )),
                 _info_row("Indexador", indexador),
@@ -830,15 +825,15 @@ def registrar_callbacks(
                 ),
                 _info_row("Prazo", f"{ultimo['anos_ate_vencimento']:.1f} anos"),
                 _info_row("Bucket", str(ultimo["bucket_prazo"])),
-                _info_row("Taxa Compra", f"{ultimo['taxa_compra_manha']:.2f}%"),
-                _info_row("Taxa Venda", f"{ultimo['taxa_venda_manha']:.2f}%"),
+                _info_row("Taxa compra", f"{ultimo['taxa_compra_manha']:.2f}%"),
+                _info_row("Taxa venda", f"{ultimo['taxa_venda_manha']:.2f}%"),
                 _info_row("Spread", f"{ultimo['spread_compra_venda']:.4f}"),
-                _info_row("PU Compra", _formatar_moeda(
+                _info_row("PU compra", _formatar_moeda(
                     ultimo.get("pu_compra_manha", float("nan"))
                 )),
-                html.Hr(),
                 _info_row("IPCA atual (ref)", f"{IPCA_ATUAL:.2f}%"),
-            ]
+            ],
+            className="tdwx-info-card",
         )
 
         # Grafico de taxa
@@ -846,10 +841,16 @@ def registrar_callbacks(
             df,
             x="data_base",
             y=["taxa_compra_manha", "taxa_venda_manha"],
-            labels={"data_base": "Data", "value": "Taxa (% a.a.)", "variable": ""},
-            title="Taxas de Compra e Venda",
+            labels={"data_base": "", "value": "Taxa (% a.a.)", "variable": ""},
+            title="Taxas de compra e venda",
+            color_discrete_sequence=["#00D4AA", "#4DA6FF"],
         )
-        fig_taxa.update_layout(template="plotly_white", height=350)
+        fig_taxa.update_layout(
+            template="tdwx_dark",
+            height=380,
+            legend=dict(orientation="h", yanchor="bottom", y=-0.2, x=0),
+        )
+        fig_taxa.update_traces(line=dict(width=2.5))
 
         # Grafico de PU
         pu_cols = [c for c in ["pu_compra_manha", "pu_venda_manha"] if c in df.columns]
@@ -858,22 +859,30 @@ def registrar_callbacks(
                 df,
                 x="data_base",
                 y=pu_cols,
-                labels={"data_base": "Data", "value": "PU (R$)", "variable": ""},
-                title="Precos Unitarios",
+                labels={"data_base": "", "value": "PU (R$)", "variable": ""},
+                title="Preços unitários",
+                color_discrete_sequence=["#FFB830", "#FF8C42"],
             )
         else:
             fig_pu = fig_vazia
-        fig_pu.update_layout(template="plotly_white", height=350)
+        fig_pu.update_layout(
+            template="tdwx_dark",
+            height=380,
+            legend=dict(orientation="h", yanchor="bottom", y=-0.2, x=0),
+        )
+        fig_pu.update_traces(line=dict(width=2.5))
 
         # Grafico de spread
         fig_spread = px.area(
             df,
             x="data_base",
             y="spread_compra_venda",
-            labels={"data_base": "Data", "spread_compra_venda": "Spread Relativo"},
-            title="Spread Compra/Venda",
+            labels={"data_base": "", "spread_compra_venda": "Spread relativo"},
+            title="Spread compra/venda",
+            color_discrete_sequence=["#A78BFA"],
         )
-        fig_spread.update_layout(template="plotly_white", height=350)
+        fig_spread.update_layout(template="tdwx_dark", height=380)
+        fig_spread.update_traces(line=dict(width=2), fillcolor="rgba(167, 139, 250, 0.2)")
 
         return card_body, stats_div, fig_taxa, fig_pu, fig_spread
 
@@ -920,82 +929,93 @@ def registrar_callbacks(
 
         # Cor do card baseada no grupo amplo
         grupo_amplo = GRUPOS_AMPLOS.get(str(melhor["familia_normalizada"]), "real")
-        cor_grupo = {
+        cor_class = {
             "pos_fixado": "info",
-            "nominal": "primary",
-            "real": "success",
-        }.get(grupo_amplo, "primary")
+            "nominal": "",
+            "real": "warning",
+        }.get(grupo_amplo, "")
 
         # Badge de fallback
         badge_html = (
-            dbc.Alert(
+            html.Div(
                 [html.Strong("Nota: "), badge_fallback],
-                color="warning",
-                className="mb-3 py-2 small",
+                className="tdwx-fallback-note",
             )
             if badge_fallback
             else None
         )
 
-        card_destaque = dbc.Card(
-            dbc.CardBody(
-                [
-                    html.Div(
-                        "Melhor opcao para voce hoje:", className="text-muted"
-                    ),
-                    html.H3(
-                        melhor["tipo_titulo"],
-                        className=f"text-{cor_grupo} mt-2 mb-2",
-                    ),
-                    dbc.Row(
-                        [
-                            dbc.Col(
-                                [
-                                    html.Div("Taxa", className="small text-muted"),
-                                    html.H5(taxa_display),
-                                ],
-                                md=3,
-                            ),
-                            dbc.Col(
-                                [
-                                    html.Div("Vencimento", className="small text-muted"),
-                                    html.H5(venc),
-                                    html.Small(prazo, className="text-muted"),
-                                ],
-                                md=2,
-                            ),
-                            dbc.Col(
-                                [
-                                    html.Div("PU Compra", className="small text-muted"),
-                                    html.H5(pu),
-                                ],
-                                md=2,
-                            ),
-                            dbc.Col(
-                                [
-                                    html.Div(score_label, className="small text-muted"),
-                                    html.H5(f"{melhor[score_col]:.3f}"),
-                                ],
-                                md=2,
-                            ),
-                            dbc.Col(
-                                [
-                                    html.Div(
-                                        "Pos. no grupo", className="small text-muted"
-                                    ),
-                                    html.H5(str(pos_cel)),
-                                ],
-                                md=2,
-                            ),
-                        ],
-                        className="mb-3",
-                    ),
-                    dbc.Alert(explicacao, color="info", className="mb-0"),
-                ]
-            ),
-            color=cor_grupo,
-            outline=True,
-            className="mb-4 shadow",
+        card_destaque = html.Div(
+            [
+                html.Div("Recomendação do dia", className="tdwx-result-badge"),
+                html.P("Melhor opção para você hoje", className="tdwx-result-label"),
+                html.H2(melhor["tipo_titulo"], className="tdwx-result-title"),
+                html.Div(
+                    [
+                        html.Div(
+                            [
+                                html.Div("Taxa", className="tdwx-result-metric-label"),
+                                html.Div(
+                                    taxa_display,
+                                    className="tdwx-result-metric-value large",
+                                ),
+                            ],
+                            className="tdwx-result-metric",
+                        ),
+                        html.Div(
+                            [
+                                html.Div(
+                                    "Vencimento",
+                                    className="tdwx-result-metric-label",
+                                ),
+                                html.Div(
+                                    venc, className="tdwx-result-metric-value"
+                                ),
+                                html.Small(
+                                    prazo,
+                                    style={
+                                        "color": "#8899AA",
+                                        "fontFamily": "DM Sans",
+                                    },
+                                ),
+                            ],
+                            className="tdwx-result-metric",
+                        ),
+                        html.Div(
+                            [
+                                html.Div("PU compra", className="tdwx-result-metric-label"),
+                                html.Div(pu, className="tdwx-result-metric-value"),
+                            ],
+                            className="tdwx-result-metric",
+                        ),
+                        html.Div(
+                            [
+                                html.Div(score_label, className="tdwx-result-metric-label"),
+                                html.Div(
+                                    f"{melhor[score_col]:.3f}",
+                                    className="tdwx-result-metric-value",
+                                ),
+                            ],
+                            className="tdwx-result-metric",
+                        ),
+                        html.Div(
+                            [
+                                html.Div("Pos. no grupo", className="tdwx-result-metric-label"),
+                                html.Div(
+                                    str(pos_cel), className="tdwx-result-metric-value"
+                                ),
+                            ],
+                            className="tdwx-result-metric",
+                        ),
+                    ],
+                    className="tdwx-result-grid",
+                ),
+                html.Div(
+                    [html.Span("✨ ", style={"marginRight": "4px"}), explicacao],
+                    className="tdwx-result-explanation",
+                ),
+            ],
+            className=f"tdwx-result-hero {cor_class}",
         )
 
         # Tabela de alternativas (excluindo o melhor)
