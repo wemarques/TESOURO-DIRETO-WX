@@ -3,6 +3,24 @@
 Todas as alterações relevantes do projeto são documentadas aqui.
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
+## [2026-05-21]
+
+### Corrigido
+- Summary cards do ranking comparavam títulos de famílias diferentes (violava regra de comparabilidade). Cards passam a ser dinâmicos por família; em "Todas as famílias" exibem orientação em vez de "melhor score global"
+- Dashboard não refletia parquets atualizados pelo cron sem reiniciar o processo
+
+### Adicionado
+- `src/dashboard/dados.py`: `EstadoDados`, recarga periódica de `data/outputs/`, `build_summary_stats()` por família
+- Aviso legal no layout global e na página `/calculadora` (não constitui recomendação de investimento)
+- Status bar com versão da metodologia (`v1.0.0`) e horário da carga em memória
+- Variável `DASH_RELOAD_INTERVAL_MS` (padrão 5 min) documentada em `.env.example` e `docs/deploy-railway.md`
+- `docs/checklist-pos-auditoria.md` com backlog P0/P1/P2 da auditoria
+- Testes `tests/test_dashboard_dados.py`
+
+### Alterado
+- Calculadora: badge "Sugestão analítica do dia" em vez de "Recomendação do dia"
+- `app.py` simplificado: boot via `ensure_data_exists()` + estado mutável compartilhado com callbacks
+
 ## [2026-04-09]
 
 ### Corrigido

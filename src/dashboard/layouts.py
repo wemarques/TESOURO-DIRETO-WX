@@ -4,6 +4,8 @@ Design system: Financial Intelligence (dark editorial inspirado em Bloomberg).
 Estilos definidos em src/dashboard/assets/style.css.
 """
 
+from datetime import datetime
+
 import dash_bootstrap_components as dbc
 from dash import dash_table, dcc, html
 
@@ -18,6 +20,24 @@ NOMES_FAMILIA = {
     "EDUCA": "Tesouro Educa+",
     "RENDA": "Tesouro Renda+",
 }
+AVISO_LEGAL_TEXTO = (
+    "Conteúdo educativo e analítico. Não constitui recomendação de investimento, "
+    "assessoria financeira ou oferta de valores mobiliários. Decisões são de "
+    "responsabilidade do usuário. Consulte um profissional certificado (CVM) "
+    "antes de investir."
+)
+
+
+def aviso_legal(compact: bool = False) -> html.Div:
+    """Banner de aviso legal."""
+    cls = "tdwx-aviso-legal tdwx-aviso-legal-compact" if compact else "tdwx-aviso-legal"
+    return html.Div(
+        html.P(AVISO_LEGAL_TEXTO, className="tdwx-aviso-legal-text"),
+        className=cls,
+        role="note",
+    )
+
+
 
 
 # =============================================================================
@@ -83,6 +103,8 @@ def status_bar(
     total_titulos: int,
     total_registros: int,
     info_ingestao: dict | None = None,
+    versao_metodologia: str = "",
+    carregado_em: datetime | None = None,
 ):
     """Barra fina abaixo da navbar com metadados em linha."""
     from datetime import date, datetime
@@ -142,6 +164,25 @@ def status_bar(
             )
         )
 
+    if versao_metodologia:
+        items.append(
+            html.Div(
+                [html.Span("Metodologia: "), html.Strong(versao_metodologia)],
+                className="tdwx-status-item",
+            )
+        )
+
+    if carregado_em:
+        items.append(
+            html.Div(
+                [
+                    html.Span("Memória: "),
+                    html.Strong(carregado_em.strftime("%d/%m/%Y %H:%M")),
+                ],
+                className="tdwx-status-item",
+            )
+        )
+
     return html.Div(
         html.Div(items, className="tdwx-status-inner"),
         className="tdwx-status-bar",
@@ -153,57 +194,91 @@ def status_bar(
 # =============================================================================
 
 def summary_card(
-    label: str, value: str, meta: str = "", variant: str = ""
+    label: str,
+    value: str,
+    meta: str = "",
+    variant: str = "",
+    meta_suffix: str = "",
 ) -> html.Div:
     """Card de resumo (cards no topo da pagina ranking)."""
+    meta_full = meta
+    if meta and meta_suffix:
+        meta_full = f"{meta} · {meta_suffix}"
+    elif meta_suffix and not meta:
+        meta_full = meta_suffix
     return html.Div(
         [
             html.P(label, className="tdwx-summary-label"),
             html.P(value, className="tdwx-summary-value"),
-            html.P(meta, className="tdwx-summary-meta") if meta else None,
+            html.P(meta_full, className="tdwx-summary-meta") if meta_full else None,
         ],
         className=f"tdwx-summary-card {variant}",
     )
+
+
+
+
+def summary_row_from_stats(stats: dict, familia: str) -> list:
+    """Summary cards por família (sem comparar famílias diferentes)."""
+    if stats.get("modo") == "todas":
+        return [
+            html.Div(
+                html.P(
+                    "Selecione uma família no filtro para ver melhor score, maior taxa "
+                    "e liquidez comparáveis (mesma família — nunca compare Selic com IPCA+).",
+                    className="tdwx-summary-hint-text",
+                ),
+                className="tdwx-summary-hint",
+            ),
+            summary_card(
+                "Títulos no snapshot",
+                str(stats.get("total", "—")),
+                "todas as famílias",
+                "purple",
+            ),
+        ]
+    if stats.get("modo") == "vazio":
+        return [summary_card("Sem dados", "—", "Nenhum título neste filtro", "warning")]
+    nome_fam = NOMES_FAMILIA.get(stats.get("familia", familia), familia)
+    sufixo = f"dentro de {nome_fam}"
+    return [
+        summary_card(
+            "Melhor Score",
+            stats.get("melhor_score_valor", "—"),
+            stats.get("melhor_score_titulo", ""),
+            "",
+            meta_suffix=sufixo,
+        ),
+        summary_card(
+            "Maior Taxa",
+            stats.get("maior_taxa_valor", "—"),
+            stats.get("maior_taxa_titulo", ""),
+            "warning",
+            meta_suffix=sufixo,
+        ),
+        summary_card(
+            "Melhor Liquidez",
+            stats.get("melhor_liquidez_valor", "—"),
+            stats.get("melhor_liquidez_titulo", ""),
+            "info",
+            meta_suffix=sufixo,
+        ),
+        summary_card("Títulos na família", str(stats.get("total", "—")), sufixo, "purple"),
+    ]
 
 
 # =============================================================================
 # PAGINA RANKING
 # =============================================================================
 
-def pagina_ranking(familias: list[str], summary_stats: dict | None = None):
+def pagina_ranking(familias: list[str]):
     """Layout da pagina de ranking."""
     opcoes_familia = [{"label": "Todas as familias", "value": "TODAS"}] + [
         {"label": NOMES_FAMILIA.get(f, f), "value": f} for f in sorted(familias)
     ]
 
-    summary_stats = summary_stats or {}
     summary_section = html.Div(
-        [
-            summary_card(
-                "Melhor Score",
-                summary_stats.get("melhor_score_valor", "—"),
-                summary_stats.get("melhor_score_titulo", ""),
-                "",
-            ),
-            summary_card(
-                "Maior Taxa",
-                summary_stats.get("maior_taxa_valor", "—"),
-                summary_stats.get("maior_taxa_titulo", ""),
-                "warning",
-            ),
-            summary_card(
-                "Melhor Liquidez",
-                summary_stats.get("melhor_liquidez_valor", "—"),
-                summary_stats.get("melhor_liquidez_titulo", ""),
-                "info",
-            ),
-            summary_card(
-                "Titulos Analisados",
-                str(summary_stats.get("total", "—")),
-                "snapshot mais recente",
-                "purple",
-            ),
-        ],
+        id="ranking-summary-row",
         className="tdwx-summary-row",
     )
 
@@ -606,6 +681,7 @@ def pagina_calculadora():
                 ],
                 className="tdwx-page-header",
             ),
+            aviso_legal(compact=False),
             html.Div(
                 [
                     # Pergunta 1

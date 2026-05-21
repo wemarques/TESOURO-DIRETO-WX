@@ -52,6 +52,9 @@ python scripts/rodar_ingestao.py
 
 # Rodar dashboard
 python -m src.dashboard.app
+
+O dashboard recarrega `data/outputs/` automaticamente (padrão a cada 5 min).
+Ajuste com `DASH_RELOAD_INTERVAL_MS`. Ver `docs/checklist-pos-auditoria.md`.
 ```
 
 ## Status

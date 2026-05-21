@@ -179,5 +179,6 @@ O caminho do `.bat` está incorreto. Verifique se o arquivo
 
 ### Tarefa roda mas o dashboard não atualiza
 
-O dashboard só lê os dados na inicialização. Após uma nova ingestão,
-reinicie o app: `python -m src.dashboard.app`.
+O dashboard recarrega automaticamente os arquivos em `data/outputs/` a cada
+5 minutos (variável `DASH_RELOAD_INTERVAL_MS`). Se precisar ver a carga imediatamente
+após o cron, aguarde o próximo ciclo ou reinicie: `python -m src.dashboard.app`.

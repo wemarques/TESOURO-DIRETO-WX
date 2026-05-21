@@ -122,6 +122,10 @@ Railway usa `requirements.txt` por padrão.
 Confirme que o cron service tem o **mesmo volume** montado em `/app/data` que o
 web service. Sem isso, cada serviço escreve em seu próprio disco efêmero.
 
+O dashboard recarrega os parquets periodicamente (`DASH_RELOAD_INTERVAL_MS`, padrão
+5 minutos) sem reiniciar o container. A status bar mostra **Memória:** com o horário
+da última carga em RAM — compare com a data de ingestão para validar frescor.
+
 ### Healthcheck falhando
 
 O `railway.toml` define `healthcheckPath = "/"` com timeout de 300s. Se o

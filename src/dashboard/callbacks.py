@@ -8,7 +8,11 @@ from dash import Input, Output, html, no_update
 
 # Importacao registra o template plotly 'tdwx_dark' como padrao
 from src.dashboard import plotly_theme  # noqa: F401
-from src.dashboard.layouts import NOMES_FAMILIA
+from src.dashboard.dados import (
+    EstadoDados,
+    build_summary_stats,
+)
+from src.dashboard.layouts import NOMES_FAMILIA, summary_row_from_stats
 from src.dashboard.plotly_theme import CORES_FAMILIA
 from src.utils.constants import IPCA_ATUAL
 
@@ -27,42 +31,6 @@ MAPA_INDEXADOR = {
 # =============================================================================
 # HELPERS
 # =============================================================================
-
-def calcular_variacao_e_pu(df_ranking: pd.DataFrame, df_historico: pd.DataFrame) -> pd.DataFrame:
-    """Acrescenta colunas taxa_12m_atras, taxa_pp_12m e pu_compra_atual ao ranking."""
-    df = df_ranking.copy()
-    df["taxa_12m_atras"] = float("nan")
-    df["taxa_pp_12m"] = float("nan")
-    df["pu_compra_atual"] = float("nan")
-
-    data_max = df_historico["data_base"].max()
-    data_12m = data_max - pd.Timedelta(days=365)
-
-    for idx, row in df.iterrows():
-        hist = df_historico[
-            (df_historico["tipo_titulo"] == row["tipo_titulo"])
-            & (df_historico["data_vencimento"] == row["data_vencimento"])
-        ].sort_values("data_base")
-
-        if hist.empty:
-            continue
-
-        atual = hist.iloc[-1]
-        if "pu_compra_manha" in atual.index and pd.notna(atual["pu_compra_manha"]):
-            df.at[idx, "pu_compra_atual"] = float(atual["pu_compra_manha"])
-
-        hist_antes = hist[hist["data_base"] <= data_12m]
-        if hist_antes.empty:
-            # Usar o registro mais antigo disponivel se nao houver 12m completo
-            hist_antes = hist.iloc[[0]]
-        if not hist_antes.empty:
-            taxa_antiga = hist_antes.iloc[-1]["taxa_compra_manha"]
-            taxa_atual = atual["taxa_compra_manha"]
-            df.at[idx, "taxa_12m_atras"] = float(taxa_antiga)
-            df.at[idx, "taxa_pp_12m"] = float(taxa_atual - taxa_antiga)
-
-    return df
-
 
 def _formatar_pp(v: float) -> str:
     """Formata variacao em pontos percentuais. Ex: '+0.50 pp' ou '-0.30 pp'."""
@@ -291,65 +259,12 @@ def recomendar_titulo(
 selecionar_titulo_calculadora = recomendar_titulo
 
 
-def build_calculadora_dataset(df_historico: pd.DataFrame) -> pd.DataFrame:
-    """Constroi dataset para a calculadora a partir do snapshot mais recente.
-
-    Inclui TODOS os titulos do dia, mesmo os cujas celulas tem poucas
-    observacoes (e por isso nao entram no ranking principal). Calcula
-    posicao_celula, taxa_pp_12m e pu_compra_atual.
-    """
-    data_max = df_historico["data_base"].max()
-    snapshot = df_historico[df_historico["data_base"] == data_max].copy()
-
-    # Aliases para compatibilidade com a UI
-    snapshot["pu_compra_atual"] = snapshot["pu_compra_manha"]
-
-    # Posicao na celula (ranking por score_a dentro de cada celula_analitica)
-    snapshot["posicao_celula"] = (
-        snapshot.groupby("celula_analitica")["score_a"]
-        .rank(ascending=False, method="min")
-        .astype(float)
-    )
-    snapshot["posicao_global"] = (
-        snapshot["score_a"].rank(ascending=False, method="min").astype(float)
-    )
-
-    # Taxa em pp 12 meses
-    data_12m = data_max - pd.Timedelta(days=365)
-    snapshot["taxa_12m_atras"] = float("nan")
-    snapshot["taxa_pp_12m"] = float("nan")
-
-    for idx, row in snapshot.iterrows():
-        hist = df_historico[
-            (df_historico["tipo_titulo"] == row["tipo_titulo"])
-            & (df_historico["data_vencimento"] == row["data_vencimento"])
-            & (df_historico["data_base"] <= data_12m)
-        ].sort_values("data_base")
-        if hist.empty:
-            continue
-        taxa_antiga = float(hist.iloc[-1]["taxa_compra_manha"])
-        snapshot.at[idx, "taxa_12m_atras"] = taxa_antiga
-        snapshot.at[idx, "taxa_pp_12m"] = float(
-            row["taxa_compra_manha"] - taxa_antiga
-        )
-
-    return snapshot.reset_index(drop=True)
-
-
 # =============================================================================
 # REGISTRAR CALLBACKS
 # =============================================================================
 
-def registrar_callbacks(
-    app,
-    df_ranking: pd.DataFrame,
-    df_historico: pd.DataFrame,
-    df_calculadora: pd.DataFrame | None = None,
-):
+def registrar_callbacks(app, estado: EstadoDados):
     """Registra todos os callbacks no app Dash."""
-    # Se nao foi passado, construir on-the-fly
-    if df_calculadora is None:
-        df_calculadora = build_calculadora_dataset(df_historico)
 
     SCORE_LABELS = {
         "score_a": "Score A (base)",
@@ -416,8 +331,48 @@ def registrar_callbacks(
     }
 
     # =========================================================================
+    # RECARGA DE DADOS (cron / parquet atualizado em disco)
+    # =========================================================================
+
+    @app.callback(
+        Output("dados-meta-store", "data"),
+        Output("tdwx-status-bar", "children"),
+        Input("reload-dados-interval", "n_intervals"),
+        prevent_initial_call=False,
+    )
+    def recarregar_dados_periodico(_n: int):
+        from src.dashboard.layouts import status_bar
+
+        try:
+            estado.recarregar()
+        except Exception as exc:
+            print(f"[dashboard] Falha ao recarregar dados: {exc}")
+        return estado.meta(), status_bar(
+            estado.data_atualizacao,
+            estado.total_titulos,
+            estado.total_registros,
+            estado.info_ingestao,
+            versao_metodologia=estado.versao_metodologia,
+            carregado_em=estado.carregado_em,
+        )
+
+    # =========================================================================
     # RANKING
     # =========================================================================
+
+    @app.callback(
+        Output("ranking-summary-row", "children"),
+        Input("ranking-familia-dropdown", "value"),
+        Input("ranking-score-dropdown", "value"),
+        Input("dados-meta-store", "data"),
+    )
+    def atualizar_summary_cards(familia: str, score_col: str, _meta: dict | None):
+        if not familia:
+            familia = "TODAS"
+        if not score_col:
+            score_col = "score_a"
+        stats = build_summary_stats(estado.df_ranking, familia, score_col)
+        return summary_row_from_stats(stats, familia)
 
     @app.callback(
         Output("ranking-bar-chart", "figure"),
@@ -431,7 +386,7 @@ def registrar_callbacks(
     def atualizar_ranking(score_col: str, familia: str, ordenar_por: str):
         if not score_col or not familia or not ordenar_por:
             return no_update, no_update, no_update, no_update
-        df = df_ranking.copy()
+        df = estado.df_ranking.copy()
         if familia != "TODAS":
             df = df[df["familia_normalizada"] == familia]
 
@@ -517,7 +472,7 @@ def registrar_callbacks(
         Input("series-familia-dropdown", "value"),
     )
     def atualizar_titulos_serie(familia: str):
-        df = df_historico[df_historico["familia_normalizada"] == familia]
+        df = estado.df_historico[estado.df_historico["familia_normalizada"] == familia]
         titulos = sorted(df["tipo_titulo"].unique())
         venc_map = (
             df.groupby("tipo_titulo")["data_vencimento"]
@@ -545,7 +500,7 @@ def registrar_callbacks(
                 height=500,
             )
 
-        df = df_historico[df_historico["tipo_titulo"].isin(titulos)].copy()
+        df = estado.df_historico[estado.df_historico["tipo_titulo"].isin(titulos)].copy()
 
         if periodo_dias > 0:
             data_corte = df["data_base"].max() - pd.Timedelta(days=periodo_dias)
@@ -595,7 +550,7 @@ def registrar_callbacks(
 
         from src.analytics.curva import obter_curva_snapshot
 
-        resultado = obter_curva_snapshot(df_historico, grupo)
+        resultado = obter_curva_snapshot(estado.df_historico, grupo)
         fig = go.Figure()
 
         if resultado is None:
@@ -655,7 +610,9 @@ def registrar_callbacks(
         if not titulo:
             return html.P("Selecione um título"), html.Div(), fig_vazia, fig_vazia, fig_vazia
 
-        df_full = df_historico[df_historico["tipo_titulo"] == titulo].sort_values("data_base")
+        df_full = estado.df_historico[
+            estado.df_historico["tipo_titulo"] == titulo
+        ].sort_values("data_base")
         if df_full.empty:
             return html.P("Sem dados"), html.Div(), fig_vazia, fig_vazia, fig_vazia
 
@@ -901,7 +858,7 @@ def registrar_callbacks(
             return html.Div()
 
         melhor, alternativas, score_col, explicacao, badge_fallback = recomendar_titulo(
-            objetivo, perfil, renda, df_calculadora,
+            objetivo, perfil, renda, estado.df_calculadora,
         )
         score_label = SCORE_LABELS.get(score_col, score_col)
 
@@ -947,8 +904,11 @@ def registrar_callbacks(
 
         card_destaque = html.Div(
             [
-                html.Div("Recomendação do dia", className="tdwx-result-badge"),
-                html.P("Melhor opção para você hoje", className="tdwx-result-label"),
+                html.Div("Sugestão analítica do dia", className="tdwx-result-badge"),
+                html.P(
+                    "Melhor score no perfil informado — não é recomendação de investimento",
+                    className="tdwx-result-label",
+                ),
                 html.H2(melhor["tipo_titulo"], className="tdwx-result-title"),
                 html.Div(
                     [
