@@ -237,9 +237,10 @@ Score_C = 0.30 × Carry_Norm + 0.40 × Residuo_Curva_Norm + 0.15 × Rolldown_Nor
 - [ ] `src/analytics/ranking.py` — ranking por célula
 
 ### Fase 3 — Dashboard
-- [ ] `src/dashboard/app.py` — interface Dash/Plotly
-- [ ] Visão por família, ranking, série temporal
-- [ ] Metadados de auditoria visíveis
+- [x] `src/dashboard/app.py` — interface Dash/Plotly
+- [x] Visão por família, ranking, série temporal
+- [x] Metadados de auditoria visíveis (status bar + recarga periódica de `data/outputs/`)
+- [x] Aviso legal e summary cards por família (`docs/checklist-pos-auditoria.md`)
 
 ### Fase 4 — Maturidade
 - [ ] Fórmulas B e C
