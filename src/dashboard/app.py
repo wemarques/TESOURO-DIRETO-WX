@@ -117,10 +117,10 @@ def _ensure_data_exists() -> bool:
         print("[boot] Pipeline inicial concluido")
         return True
 
-    print(
-        "[boot] Pipeline executado, mas os arquivos publicados ainda nao " 
-	"existem. O dashboard iniciara em modo degradado e tentara novamente "
-	"quando os dados estiverem disponiveis."
+       print(
+        "[boot] Pipeline executado, mas os arquivos publicados ainda nao "
+        "existem. O dashboard iniciara em modo degradado e tentara novamente "
+        "quando os dados estiverem disponiveis."
     )
     return False
 
