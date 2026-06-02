@@ -1,10 +1,13 @@
-pandas>=2.2
-numpy>=1.26
-plotly>=5.22
-dash>=2.17
-dash-bootstrap-components>=1.6
-scipy>=1.13
-requests>=2.31
+# Limites superiores fixados nos majors testados — evita o Railway puxar
+# dash 4 / pandas 3 / numpy 2 / plotly 6, que quebram render de componentes
+# (RadioItems no mobile) e tem mudancas de comportamento nao testadas aqui.
+pandas>=2.2,<3
+numpy>=1.26,<2
+plotly>=5.22,<6
+dash>=2.17,<3
+dash-bootstrap-components>=1.6,<2
+scipy>=1.13,<2
+requests>=2.31,<3
 python-dateutil>=2.9
 pyarrow>=15.0
 schedule>=1.2

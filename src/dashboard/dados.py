@@ -6,7 +6,7 @@ import os
 import subprocess
 import sys
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pandas as pd
@@ -23,6 +23,9 @@ from src.utils.constants import (
 )
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
+# Brasilia (UTC-3, sem horario de verao desde 2019)
+BRT = timezone(timedelta(hours=-3))
 
 
 def calcular_variacao_e_pu(
@@ -229,7 +232,7 @@ class EstadoDados:
         self.titulos_unicos = sorted(df_historico["tipo_titulo"].unique().tolist())
         self.grupos_analiticos = sorted(df_historico["grupo_analitico"].unique().tolist())
         self.info_ingestao = info_ingestao
-        self.carregado_em = datetime.now()
+        self.carregado_em = datetime.now(BRT)
 
     def meta(self) -> dict:
         """Metadados serializáveis para ``dcc.Store``."""
