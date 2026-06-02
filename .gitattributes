@@ -1,0 +1,10 @@
+# Forca LF em codigo/config: evita CRLF quebrando o bash embutido nos
+# workflows do GitHub Actions e silencia os avisos "LF will be replaced by CRLF".
+*.py    text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
+*.sh    text eol=lf
+*.toml  text eol=lf
+
+# Dados binarios — sem conversao de fim de linha nem diff textual.
+*.parquet binary
