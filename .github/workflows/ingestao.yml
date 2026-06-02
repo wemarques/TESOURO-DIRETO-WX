@@ -1,11 +1,9 @@
 name: Ingestao Tesouro Direto
 
 # Atualiza os dados em producao automaticamente:
-#   1. roda ingestao (CKAN) + analytics (scores/ranking)
+#   1. roda ingestao (BRAPI snapshot + CKAN historico) + analytics (scores/ranking)
 #   2. commita os .parquet de data/outputs/
 #   3. o push dispara o redeploy no Railway com dado fresco
-#
-# Fonte CKAN e publica -> nao precisa de secret/token.
 
 on:
   schedule:
@@ -35,7 +33,7 @@ jobs:
       - name: Setup Python 3.12
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"   # projeto exige 3.12 (3.11 quebra)
+          python-version: "3.12"
           cache: pip
 
       - name: Instalar dependencias
@@ -43,13 +41,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e .
 
-      # Runner e stateless (sem catalogo/historico local), entao forcamos o
-      # download para garantir que a base enriquecida seja sempre regenerada.
-      # --forcar tambem garante que o snapshot BRAPI rode mesmo se o CKAN
-      # nao tiver mudado no dia.
+      # Runner e stateless: --forcar garante que ingestao + snapshot BRAPI
+      # rodem mesmo se o CKAN nao tiver mudado no dia.
       - name: Rodar ingestao (BRAPI snapshot + CKAN historico)
         env:
-          BRAPI_TOKEN: ${{ secrets.BRAPI_TOKEN }}   # token Pro — cadastrar em Settings > Secrets
+          BRAPI_TOKEN: ${{ secrets.BRAPI_TOKEN }}
         run: python scripts/rodar_ingestao.py --forcar
 
       - name: Rodar analytics (scores + ranking)
@@ -59,6 +55,11 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          # .gitignore ja exclui os .csv; aqui entram so os .parquet de outputs.
           git add data/outputs
           if git diff --staged --quiet; then
+            echo "Sem mudanca nos dados -- nada a commitar."
+          else
+            git commit -m "data: atualizacao automatica do Tesouro [skip ci]"
+            git pull --rebase origin "${GITHUB_REF_NAME}"
+            git push
+          fi
