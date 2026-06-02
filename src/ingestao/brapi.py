@@ -34,7 +34,8 @@ logger = logging.getLogger(__name__)
 # ============================================================================
 CONFIG = {
     "base_url": "https://brapi.dev/api/v2/treasury",
-    "token_env": "BRAPI_TOKEN",            # nome da variavel de ambiente
+    "token_env": "BRAPI_TOKEN",            # nome da variavel de ambiente (padrao do projeto)
+    "token_env_fallback": "BRAPI_API_TOKEN",  # aceito tambem (nome usado em alguns ambientes)
     "timeout_s": 30,                       # timeout explicito por requisicao
     "page_limit": 100,                     # itens/pagina no /list (cobre ~60 titulos numa pagina)
     "max_paginas": 50,                     # trava de seguranca contra loop de paginacao
@@ -91,8 +92,16 @@ _ultima_requisicao_ts = 0.0
 
 
 def _token_() -> str | None:
-    """Le o token Pro da BRAPI da variavel de ambiente (nunca hardcoded)."""
-    return os.getenv(CONFIG["token_env"]) or None
+    """Le o token Pro da BRAPI do ambiente (nunca hardcoded).
+
+    Aceita BRAPI_TOKEN (padrao) com fallback BRAPI_API_TOKEN, evitando
+    quebra por divergencia de nome entre Railway/GitHub/local.
+    """
+    for nome in (CONFIG["token_env"], CONFIG["token_env_fallback"]):
+        valor = os.getenv(nome)
+        if valor:
+            return valor
+    return None
 
 
 def _montar_headers_() -> dict:
