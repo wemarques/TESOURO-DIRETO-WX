@@ -125,6 +125,17 @@ def main():
     df = padronizar(arquivo)
     print(f"  ok Padronizacao OK -- {len(df)} registros")
 
+    # --- Snapshot BRAPI (fonte primaria do dia) + merge com historico CKAN ---
+    print("  -> Coletando snapshot BRAPI...")
+    from src.ingestao.brapi import coletar_snapshot_brapi, mesclar_com_ckan_
+    df_brapi = coletar_snapshot_brapi()
+    if df_brapi is not None and not df_brapi.empty:
+        df = mesclar_com_ckan_(df_ckan=df, df_brapi=df_brapi)
+        n_brapi = int((df["fonte"] == "brapi").sum())
+        print(f"  ok BRAPI mesclada -- {len(df)} registros ({n_brapi} da BRAPI)")
+    else:
+        print("  ! BRAPI indisponivel -- degrade controlado, seguindo so com CKAN")
+
     # Enriquecer
     print("  -> Enriquecendo...")
     from src.transformacao.enriquecimento import enriquecer

@@ -1,0 +1,64 @@
+name: Ingestao Tesouro Direto
+
+# Atualiza os dados em producao automaticamente:
+#   1. roda ingestao (CKAN) + analytics (scores/ranking)
+#   2. commita os .parquet de data/outputs/
+#   3. o push dispara o redeploy no Railway com dado fresco
+#
+# Fonte CKAN e publica -> nao precisa de secret/token.
+
+on:
+  schedule:
+    # 23:00 UTC = 20:00 BRT, dias uteis (seg-sex), apos o fechamento.
+    # GitHub Actions usa SEMPRE UTC e pode atrasar alguns minutos.
+    - cron: "0 23 * * 1-5"
+  workflow_dispatch: {}   # botao "Run workflow" na aba Actions (rodar na mao)
+
+# Necessario para o GITHUB_TOKEN conseguir commitar/pushar de volta no repo.
+permissions:
+  contents: write
+
+# Evita duas execucoes pisando uma na outra (cron + manual ao mesmo tempo).
+concurrency:
+  group: ingestao-dados
+  cancel-in-progress: false
+
+jobs:
+  atualizar-dados:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"   # projeto exige 3.12 (3.11 quebra)
+          cache: pip
+
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+
+      # Runner e stateless (sem catalogo/historico local), entao forcamos o
+      # download para garantir que a base enriquecida seja sempre regenerada.
+      # --forcar tambem garante que o snapshot BRAPI rode mesmo se o CKAN
+      # nao tiver mudado no dia.
+      - name: Rodar ingestao (BRAPI snapshot + CKAN historico)
+        env:
+          BRAPI_TOKEN: ${{ secrets.BRAPI_TOKEN }}   # token Pro — cadastrar em Settings > Secrets
+        run: python scripts/rodar_ingestao.py --forcar
+
+      - name: Rodar analytics (scores + ranking)
+        run: python scripts/rodar_analytics.py
+
+      - name: Commitar dados atualizados
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # .gitignore ja exclui os .csv; aqui entram so os .parquet de outputs.
+          git add data/outputs
+          if git diff --staged --quiet; then
