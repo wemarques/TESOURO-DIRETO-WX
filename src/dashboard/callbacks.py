@@ -802,12 +802,33 @@ def registrar_callbacks(app, estado: EstadoDados):
             title="Taxas de compra e venda",
             color_discrete_sequence=["#00D4AA", "#4DA6FF"],
         )
+        # Contexto historico: banda min-max + mediana de toda a serie e ponto de hoje
+        _taxa_hist = df_full["taxa_compra_manha"].dropna()
+        if len(_taxa_hist) >= 5:
+            h_min, h_max = float(_taxa_hist.min()), float(_taxa_hist.max())
+            h_med = float(_taxa_hist.median())
+            pctl = float((_taxa_hist <= taxa_atual).mean() * 100)
+            fig_taxa.add_hrect(
+                y0=h_min, y1=h_max, fillcolor="rgba(136,153,170,0.06)",
+                line_width=0, layer="below",
+            )
+            fig_taxa.add_hline(
+                y=h_med, line_dash="dot", line_color="#8899AA",
+                annotation_text=f"mediana hist. {h_med:.2f}%",
+                annotation_position="top left",
+            )
+            fig_taxa.add_scatter(
+                x=[data_max], y=[taxa_atual], mode="markers",
+                marker=dict(size=11, color="#00D4AA",
+                            line=dict(width=2, color="#0F1923")),
+                name=f"hoje {taxa_atual:.2f}% (p{pctl:.0f})", hoverinfo="name",
+            )
         fig_taxa.update_layout(
             template="tdwx_dark",
             height=380,
             legend=dict(orientation="h", yanchor="bottom", y=-0.2, x=0),
         )
-        fig_taxa.update_traces(line=dict(width=2.5))
+        fig_taxa.update_traces(line=dict(width=2.5), selector=dict(mode="lines"))
 
         # Grafico de PU
         pu_cols = [c for c in ["pu_compra_manha", "pu_venda_manha"] if c in df.columns]
@@ -829,17 +850,29 @@ def registrar_callbacks(app, estado: EstadoDados):
         )
         fig_pu.update_traces(line=dict(width=2.5))
 
-        # Grafico de spread
+        # Grafico de spread (em bps + media movel) — proxy de liquidez
+        df_sp = df.copy()
+        df_sp["spread_bps"] = df_sp["spread_compra_venda"] * 10000
+        df_sp["spread_bps_ma"] = df_sp["spread_bps"].rolling(20, min_periods=1).mean()
         fig_spread = px.area(
-            df,
+            df_sp,
             x="data_base",
-            y="spread_compra_venda",
-            labels={"data_base": "", "spread_compra_venda": "Spread relativo"},
-            title="Spread compra/venda",
+            y="spread_bps",
+            labels={"data_base": "", "spread_bps": "Spread (bps)"},
+            title="Spread compra/venda — proxy de liquidez (menor = mais liquido)",
             color_discrete_sequence=["#A78BFA"],
         )
-        fig_spread.update_layout(template="tdwx_dark", height=380)
-        fig_spread.update_traces(line=dict(width=2), fillcolor="rgba(167, 139, 250, 0.2)")
+        if fig_spread.data:
+            fig_spread.data[0].fillcolor = "rgba(167, 139, 250, 0.2)"
+            fig_spread.data[0].line.width = 2
+        fig_spread.add_scatter(
+            x=df_sp["data_base"], y=df_sp["spread_bps_ma"], mode="lines",
+            line=dict(width=2, color="#FFB830"), name="media movel 20d",
+        )
+        fig_spread.update_layout(
+            template="tdwx_dark", height=380,
+            legend=dict(orientation="h", yanchor="bottom", y=-0.2, x=0),
+        )
 
         return card_body, stats_div, fig_taxa, fig_pu, fig_spread
 

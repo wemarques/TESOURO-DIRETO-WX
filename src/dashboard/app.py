@@ -108,6 +108,27 @@ app = dash.Dash(
     title="Tesouro Direto WX",
 )
 
+# index_string com lang=pt-BR + notranslate: impede o navegador (Chrome/Safari)
+# de "traduzir" a pagina e corromper os textos PT-BR (e quebrar cliques no mobile).
+app.index_string = """<!DOCTYPE html>
+<html lang="pt-BR" translate="no">
+    <head>
+        {%metas%}
+        <meta name="google" content="notranslate">
+        {%favicon%}
+        {%css%}
+        <title>{%title%}</title>
+    </head>
+    <body class="notranslate">
+        {%app_entry%}
+        <footer>
+            {%config%}
+            {%scripts%}
+            {%renderer%}
+        </footer>
+    </body>
+</html>"""
+
 app.layout = html.Div(
     [
         dcc.Location(id="url", refresh=False),
