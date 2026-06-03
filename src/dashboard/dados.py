@@ -231,8 +231,9 @@ class EstadoDados:
         self.total_registros = len(df_historico)
         self.familias = sorted(df_ranking["familia_normalizada"].unique().tolist())
         self.titulos_unicos = sorted(df_historico["tipo_titulo"].unique().tolist())
+        # So titulos ofertados HOJE (snapshot = ranking_atual), nao o historico inteiro.
         _det = (
-            df_historico[["tipo_titulo", "data_vencimento"]]
+            df_ranking[["tipo_titulo", "data_vencimento"]]
             .drop_duplicates()
             .sort_values(["tipo_titulo", "data_vencimento"])
         )
