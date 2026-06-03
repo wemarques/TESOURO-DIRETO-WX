@@ -581,9 +581,15 @@ def pagina_series(familias: list[str], titulos: list[str], grupos: list[str]):
 # PAGINA TITULO INDIVIDUAL
 # =============================================================================
 
-def pagina_titulo(titulos: list[str]):
-    """Layout da pagina de detalhamento individual."""
-    opcoes = [{"label": t, "value": t} for t in sorted(titulos)]
+def pagina_titulo(titulos: list):
+    """Layout da pagina de detalhamento individual.
+
+    Aceita lista de dicts {label, value} (titulo+vencimento) ou strings (compat).
+    """
+    if titulos and isinstance(titulos[0], dict):
+        opcoes = titulos
+    else:
+        opcoes = [{"label": t, "value": t} for t in sorted(titulos)]
 
     return html.Div(
         [

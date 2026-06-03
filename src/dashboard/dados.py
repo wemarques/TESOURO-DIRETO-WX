@@ -201,6 +201,7 @@ class EstadoDados:
     total_registros: int = 0
     familias: list[str] = field(default_factory=list)
     titulos_unicos: list[str] = field(default_factory=list)
+    titulos_detalhados: list[dict] = field(default_factory=list)
     grupos_analiticos: list[str] = field(default_factory=list)
     info_ingestao: dict = field(default_factory=dict)
     carregado_em: datetime | None = None
@@ -230,6 +231,18 @@ class EstadoDados:
         self.total_registros = len(df_historico)
         self.familias = sorted(df_ranking["familia_normalizada"].unique().tolist())
         self.titulos_unicos = sorted(df_historico["tipo_titulo"].unique().tolist())
+        _det = (
+            df_historico[["tipo_titulo", "data_vencimento"]]
+            .drop_duplicates()
+            .sort_values(["tipo_titulo", "data_vencimento"])
+        )
+        self.titulos_detalhados = [
+            {
+                "label": f"{r.tipo_titulo} {pd.Timestamp(r.data_vencimento):%d/%m/%Y}",
+                "value": f"{r.tipo_titulo}||{pd.Timestamp(r.data_vencimento):%Y-%m-%d}",
+            }
+            for r in _det.itertuples(index=False)
+        ]
         self.grupos_analiticos = sorted(df_historico["grupo_analitico"].unique().tolist())
         self.info_ingestao = info_ingestao
         self.carregado_em = datetime.now(BRT)

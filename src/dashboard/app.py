@@ -163,7 +163,7 @@ def renderizar_pagina(pathname: str):
     if pathname == "/series":
         return pagina_series(estado.familias, estado.titulos_unicos, estado.grupos_analiticos)
     if pathname == "/titulo":
-        return pagina_titulo(estado.titulos_unicos)
+        return pagina_titulo(estado.titulos_detalhados)
     if pathname == "/calculadora":
         return pagina_calculadora()
     if pathname == "/guia":

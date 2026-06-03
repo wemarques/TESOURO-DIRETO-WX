@@ -610,9 +610,20 @@ def registrar_callbacks(app, estado: EstadoDados):
         if not titulo:
             return html.P("Selecione um título"), html.Div(), fig_vazia, fig_vazia, fig_vazia
 
-        df_full = estado.df_historico[
-            estado.df_historico["tipo_titulo"] == titulo
-        ].sort_values("data_base")
+        # value pode vir como "tipo||YYYY-MM-DD" (titulo especifico) ou so o tipo (compat)
+        if "||" in titulo:
+            tipo_sel, venc_sel = titulo.split("||", 1)
+            venc_ts = pd.Timestamp(venc_sel)
+            mask = (estado.df_historico["tipo_titulo"] == tipo_sel) & (
+                estado.df_historico["data_vencimento"] == venc_ts
+            )
+            titulo_label = f"{tipo_sel} {venc_ts:%d/%m/%Y}"
+        else:
+            tipo_sel = titulo
+            mask = estado.df_historico["tipo_titulo"] == tipo_sel
+            titulo_label = tipo_sel
+
+        df_full = estado.df_historico[mask].sort_values("data_base")
         if df_full.empty:
             return html.P("Sem dados"), html.Div(), fig_vazia, fig_vazia, fig_vazia
 
@@ -768,10 +779,10 @@ def registrar_callbacks(app, estado: EstadoDados):
             df = df_full
 
         # Card de informacoes
-        indexador = MAPA_INDEXADOR.get(titulo, "-")
+        indexador = MAPA_INDEXADOR.get(tipo_sel, "-")
         card_body = html.Div(
             [
-                html.H4(titulo, className="tdwx-info-title"),
+                html.H4(titulo_label, className="tdwx-info-title"),
                 _info_row("Família", NOMES_FAMILIA.get(
                     str(ultimo["familia_normalizada"]), str(ultimo["familia_normalizada"])
                 )),

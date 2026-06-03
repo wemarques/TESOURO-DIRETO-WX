@@ -784,7 +784,7 @@ input.current-page {
   padding: 24px;
   transition: var(--transition);
   position: relative;
-  overflow: hidden;
+  overflow: visible; /* menu do dropdown abre fora do card (mobile) */
 }
 
 .tdwx-question-card::before {
@@ -795,6 +795,7 @@ input.current-page {
   right: 0;
   height: 2px;
   background: var(--gradient-accent);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   opacity: 0;
   transition: var(--transition);
 }
