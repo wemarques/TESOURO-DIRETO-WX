@@ -15,7 +15,12 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 - Inflação implícita (Fisher) dos títulos IPCA contra a curva prefixada interpolada na mesma duration — só dentro do alcance da curva (sem extrapolar)
 - `src/utils/nomes.py`: nomes curtos no padrão do Tesouro ("Renda+ 2065", "IPCA+ Juros 2060") no ranking e no gráfico
 
+- `/titulo` (Fase 5): simulador de marcação a mercado — Δ taxa (−2 a +2 p.p.), horizonte e indexador projetado → PU de venda, retorno bruto, efeito-taxa, IR regressivo, IOF, custódia e retorno líquido; matriz Δ taxa × horizonte; aviso de degrau de IR quando faltam ≤ 30 dias
+- `src/analytics/simulador.py`: simulação de compra hoje e venda ao Tesouro (taxa de venda, liquidação D+0), com cupons/parcelas recebidos e VNA projetado
+- `/titulo`: "Efeito no preço" vira leitura dupla — quem já tinha o título (retorno em 12 meses separado em marcação e carrego, com cupons/parcelas recebidos) × quem entra hoje (quanto paga a mais ou a menos pela variação da taxa)
+
 ### Corrigido
+- `IPCA_ATUAL` estava em 3,81%; atualizado para 4,58% (IPCA 12 meses até 09/2026, SGS 13522). Adicionado `SELIC_META_REF` = 13,75% (SGS 432)
 - Score B penalizava prazo e não duration: o Renda+/Educa+ era medido pela última parcela (ex.: 58 anos no Renda+ 2065, contra ~46 de duration real) e o Tesouro Selic recebia penalidade de juros que não tem. A penalidade passa a usar `duration_risco` (duration modificada; zero no Selic)
 
 ### Alterado

@@ -1,10 +1,14 @@
 """Callbacks de interatividade do dashboard."""
 
 import dash_bootstrap_components as dbc
+import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from dash import Input, Output, html, no_update
+
+from src.analytics.duration import TIPOS_IPCA, TIPOS_NOMINAIS, decompor_retorno
+from src.analytics.simulador import matriz_cenarios, proximo_degrau_ir, simular
 
 # Importacao registra o template plotly 'tdwx_dark' como padrao
 from src.dashboard import plotly_theme  # noqa: F401
@@ -14,7 +18,7 @@ from src.dashboard.dados import (
 )
 from src.dashboard.layouts import NOMES_FAMILIA, summary_row_from_stats
 from src.dashboard.plotly_theme import CORES_FAMILIA
-from src.utils.constants import IPCA_ATUAL
+from src.utils.constants import IPCA_ATUAL, SELIC_META_REF
 from src.utils.nomes import nome_curto
 
 MAPA_INDEXADOR = {
@@ -80,6 +84,85 @@ def _stat_card(label: str, value: str, variant: str = "") -> html.Div:
         ],
         className="tdwx-stat-card",
     )
+
+
+def _leitura_dupla_12m(tipo: str, df_full, df_12m_atras, ultimo) -> html.Div:
+    """As duas faces da variacao de taxa em 12 meses: quem ja tinha x quem entra hoje.
+
+    Usa ``decompor_retorno``: separa a variacao do PU em efeito-taxa (marcacao a
+    mercado) e carrego/indexacao. Cupons/parcelas pagos no periodo entram no
+    retorno de quem ja tinha o titulo.
+    """
+    if df_12m_atras.empty or "pu_compra_manha" not in df_full.columns:
+        return html.P("Sem dado de 12 meses atrás", className="tdwx-sim-note")
+    antigo = df_12m_atras.iloc[-1]
+    try:
+        d = decompor_retorno(
+            tipo,
+            ultimo["data_vencimento"],
+            antigo["data_base"],
+            float(antigo["taxa_compra_manha"]),
+            float(antigo["pu_compra_manha"]),
+            ultimo["data_base"],
+            float(ultimo["taxa_compra_manha"]),
+            float(ultimo["pu_compra_manha"]),
+        )
+    except (ValueError, KeyError, ZeroDivisionError):
+        return html.Div()
+
+    pp = d["delta_taxa_pp"]
+    efeito = d["efeito_taxa"]
+    if abs(pp) < 0.005:
+        return html.P(
+            "Taxa praticamente estável em 12 meses: o preço variou só pelo carrego.",
+            className="tdwx-sim-note",
+        )
+    taxa_caiu = pp < 0
+    nota_fluxo = (
+        f" Inclui {_formatar_moeda(d['fluxos_recebidos'])} em cupons/parcelas recebidos."
+        if d.get("fluxos_recebidos", 0) > 0 else ""
+    )
+    quem_tinha = html.Div(
+        [
+            html.Div("Quem já tinha o título", className="tdwx-leitura-titulo"),
+            html.Div(
+                _formatar_pct(d["retorno_total"]) + " em 12 meses",
+                className="tdwx-leitura-valor",
+            ),
+            html.Div(
+                f"{_formatar_pct(efeito)} vieram da {'queda' if taxa_caiu else 'alta'} de "
+                f"{abs(pp):.2f} p.p. na taxa (marcação a mercado) e "
+                f"{_formatar_pct(d['carrego_indexacao'])} do carrego"
+                f"{' + indexador' if tipo not in TIPOS_NOMINAIS else ''}.{nota_fluxo}",
+                className="tdwx-leitura-texto",
+            ),
+        ],
+        className=f"tdwx-leitura {'ganho' if efeito >= 0 else 'perda'}",
+    )
+    quem_entra = html.Div(
+        [
+            html.Div("Quem entra hoje", className="tdwx-leitura-titulo"),
+            html.Div(
+                f"paga {_formatar_pct(efeito).lstrip('+-')} {'a mais' if taxa_caiu else 'a menos'}",
+                className="tdwx-leitura-valor",
+            ),
+            html.Div(
+                (
+                    "do que pagaria com a taxa de 12 meses atrás, e trava uma taxa menor "
+                    "até o vencimento. Só ganha com marcação se a taxa cair ainda mais."
+                )
+                if taxa_caiu
+                else (
+                    "do que pagaria com a taxa de 12 meses atrás, e trava uma taxa maior "
+                    "até o vencimento. Se a taxa voltar a cair, ganha com a marcação."
+                ),
+                className="tdwx-leitura-texto",
+            ),
+        ],
+        className=f"tdwx-leitura {'perda' if taxa_caiu else 'ganho'}",
+    )
+    return html.Div([quem_tinha, quem_entra], className="tdwx-leitura-dupla")
+
 
 
 # =============================================================================
@@ -802,23 +885,8 @@ def registrar_callbacks(app, estado: EstadoDados):
             className="tdwx-stats-grid",
         )
 
-        # Card de comparacao 12 meses com efeito no preco
-        if pd.isna(pp_12m):
-            efeito_icone = ""
-            efeito_texto = "Sem dado de 12 meses atrás"
-            efeito_cor = ""
-        elif pp_12m > 0:
-            efeito_icone = "🛒"
-            efeito_texto = "título ficou mais barato (oportunidade para compra)"
-            efeito_cor = "success"
-        elif pp_12m < 0:
-            efeito_icone = "⚠️"
-            efeito_texto = "título ficou mais caro (menos atrativo para entrada)"
-            efeito_cor = "warning"
-        else:
-            efeito_icone = "="
-            efeito_texto = "preço praticamente inalterado"
-            efeito_cor = ""
+        # Card de comparacao 12 meses: variacao de taxa + leitura dupla do efeito no preco
+        leitura = _leitura_dupla_12m(tipo_sel, df_full, df_12m_atras, ultimo)
 
         card_12m = html.Div(
             [
@@ -837,32 +905,10 @@ def registrar_callbacks(app, estado: EstadoDados):
                             if pd.notna(pp_12m) and pp_12m < 0
                             else "success",
                         ),
-                        html.Div(
-                            [
-                                html.Div(
-                                    "Efeito no preço", className="tdwx-stat-label"
-                                ),
-                                html.Div(
-                                    [
-                                        html.Span(
-                                            efeito_icone,
-                                            style={
-                                                "marginRight": "6px",
-                                                "fontSize": "16px",
-                                            },
-                                        ),
-                                        html.Span(
-                                            efeito_texto, style={"fontSize": "12px"}
-                                        ),
-                                    ],
-                                    className=f"tdwx-stat-value {efeito_cor}",
-                                ),
-                            ],
-                            className="tdwx-stat-card",
-                        ),
                     ],
                     className="tdwx-12m-grid",
                 ),
+                leitura,
             ],
             className="tdwx-12m-card",
         )
@@ -1160,3 +1206,146 @@ def registrar_callbacks(app, estado: EstadoDados):
 
         componentes = [c for c in [badge_html, card_destaque, secao_alternativas] if c]
         return html.Div(componentes)
+
+    # =========================================================================
+    # SIMULADOR DE MARCACAO A MERCADO (/titulo)
+    # =========================================================================
+
+    def _ultimo_registro(titulo: str | None):
+        if not titulo or "||" not in titulo:
+            return None
+        tipo, venc = titulo.split("||", 1)
+        h = estado.df_historico
+        sel = h[(h["tipo_titulo"] == tipo) & (h["data_vencimento"] == pd.Timestamp(venc))]
+        return None if sel.empty else sel.sort_values("data_base").iloc[-1]
+
+    @app.callback(
+        Output("sim-indexador", "value"),
+        Output("sim-indexador", "disabled"),
+        Output("sim-indexador-label", "children"),
+        Input("titulo-dropdown", "value"),
+    )
+    def ajustar_indexador_simulador(titulo: str | None):
+        tipo = titulo.split("||", 1)[0] if titulo else ""
+        if tipo in TIPOS_IPCA:
+            return IPCA_ATUAL, False, "IPCA projetado (% a.a.)"
+        if tipo == "Tesouro Selic":
+            return SELIC_META_REF, False, "Selic projetada (% a.a.)"
+        if tipo == "Tesouro IGPM+ com Juros Semestrais":
+            return IPCA_ATUAL, False, "IGP-M projetado (% a.a.)"
+        return None, True, "Indexador (não se aplica ao prefixado)"
+
+    @app.callback(
+        Output("sim-resultado", "children"),
+        Output("sim-heatmap", "figure"),
+        Input("titulo-dropdown", "value"),
+        Input("sim-delta", "value"),
+        Input("sim-horizonte", "value"),
+        Input("sim-indexador", "value"),
+    )
+    def atualizar_simulador(titulo, delta, horizonte, indexador):
+        fig_vazia = go.Figure().update_layout(template="tdwx_dark", height=320)
+        reg = _ultimo_registro(titulo)
+        if reg is None or pd.isna(reg.get("pu_compra_manha")):
+            return html.P("Selecione um título.", className="tdwx-sim-note"), fig_vazia
+
+        tipo = reg["tipo_titulo"]
+        base = dict(
+            tipo_titulo=tipo,
+            vencimento=reg["data_vencimento"],
+            data_base=reg["data_base"],
+            taxa_compra_pct=float(reg["taxa_compra_manha"]),
+            pu_compra=float(reg["pu_compra_manha"]),
+            taxa_venda_pct=(
+                float(reg["taxa_venda_manha"])
+                if pd.notna(reg.get("taxa_venda_manha")) else None
+            ),
+            indexador_aa_pct=float(indexador) if indexador not in (None, "") else 0.0,
+        )
+        try:
+            r = simular(delta_pp=float(delta or 0), horizonte_meses=int(horizonte), **base)
+        except ValueError:
+            return (
+                html.P(
+                    "O horizonte escolhido passa do vencimento do título. "
+                    "Escolha um prazo menor.",
+                    className="tdwx-sim-note",
+                ),
+                fig_vazia,
+            )
+
+        cor = "success" if r.retorno_liquido >= 0 else "danger"
+        cards = html.Div(
+            [
+                _stat_card("PU de compra hoje", _formatar_moeda(r.pu_compra)),
+                _stat_card(f"PU de venda em {r.data_venda:%d/%m/%Y}", _formatar_moeda(r.pu_venda)),
+                _stat_card("Retorno bruto", _formatar_pct(r.retorno_bruto),
+                           "success" if r.retorno_bruto >= 0 else "danger"),
+                _stat_card("Só da variação de taxa", _formatar_pct(r.efeito_taxa),
+                           "success" if r.efeito_taxa >= 0 else "danger"),
+                _stat_card(f"IR ({r.aliquota_ir * 100:.1f}%) + IOF",
+                           _formatar_moeda(r.ir + r.iof)),
+                _stat_card("Custódia B3", _formatar_moeda(r.custodia)),
+                _stat_card("Retorno líquido", _formatar_pct(r.retorno_liquido), cor),
+                _stat_card("Líquido ao ano", _formatar_pct(r.retorno_liquido_aa), cor),
+            ],
+            className="tdwx-sim-grid",
+        )
+
+        notas = []
+        if r.fluxos_recebidos > 0:
+            notas.append(
+                f"Inclui {_formatar_moeda(r.fluxos_recebidos)} em cupons/parcelas recebidos "
+                "no período (sem reinvestimento)."
+            )
+        degrau = proximo_degrau_ir(r.dias_corridos)
+        if degrau and degrau[0] <= 30 and r.retorno_bruto > 0:
+            dias_faltam, nova = degrau
+            ganho_ir = (r.aliquota_ir - nova) * r.retorno_bruto
+            notas.append(
+                f"Atenção ao IR: esperando mais {dias_faltam} dia(s) a alíquota cai de "
+                f"{r.aliquota_ir * 100:.1f}% para {nova * 100:.1f}%, "
+                f"o que soma cerca de {ganho_ir * 100:.1f} p.p. ao retorno líquido."
+            )
+        nota_div = [
+            html.P(html.Strong(n) if "Atenção" in n else n, className="tdwx-sim-note")
+            for n in notas
+        ]
+
+        # Matriz delta x horizonte (retorno liquido)
+        deltas = [-2.0, -1.5, -1.0, -0.5, 0.0, 0.5, 1.0, 1.5, 2.0]
+        horizontes = [3, 6, 12, 24, 36, 60]
+        m = matriz_cenarios(deltas, horizontes, **base) * 100
+        rotulos_h = [f"{h}m" for h in horizontes]
+        rotulos_d = [f"{d:+.1f}" for d in deltas]
+        texto = [[("—" if pd.isna(v) else f"{v:+.1f}%") for v in linha] for linha in m.values]
+        lim = float(np.nanmax(np.abs(m.values))) if np.isfinite(m.values).any() else 1.0
+        fig = go.Figure(
+            go.Heatmap(
+                z=m.values,
+                x=rotulos_h,
+                y=rotulos_d,
+                text=texto,
+                texttemplate="%{text}",
+                colorscale=[[0, "#FF5555"], [0.5, "#1E2F3F"], [1, "#00D4AA"]],
+                zmid=0,
+                zmin=-lim,
+                zmax=lim,
+                hovertemplate=(
+                    "Taxa %{y} p.p. · venda em %{x}<br>Líquido: %{text}<extra></extra>"
+                ),
+                textfont=dict(size=11),
+                showscale=False,  # os valores ja estao nas celulas
+            )
+        )
+        fig.update_layout(
+            template="tdwx_dark",
+            height=400,
+            title=dict(text="Retorno líquido por cenário", font=dict(size=14)),
+            xaxis_title="Horizonte até a venda",
+            yaxis_title="Δ taxa (p.p.)",
+            margin=dict(t=50, l=60, r=10, b=50),
+            yaxis=dict(type="category"),
+            xaxis=dict(type="category"),
+        )
+        return html.Div([cards, *nota_div]), fig

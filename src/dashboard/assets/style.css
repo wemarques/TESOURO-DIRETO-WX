@@ -1435,3 +1435,129 @@ small { color: var(--text-muted); }
   color: var(--text-secondary);
   line-height: 1.5;
 }
+
+
+/* ============================================
+   SIMULADOR DE MARCACAO A MERCADO (/titulo)
+   ============================================ */
+
+.tdwx-sim-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  margin-top: 24px;
+  margin-bottom: 24px;
+  box-shadow: var(--shadow-sm);
+}
+
+.tdwx-sim-title {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 6px 0;
+}
+
+.tdwx-sim-subtitle {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin: 0 0 20px 0;
+  max-width: 820px;
+}
+
+.tdwx-sim-controls {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  gap: 24px;
+  align-items: end;
+  margin-bottom: 24px;
+}
+
+.tdwx-sim-input {
+  width: 100%;
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  font-family: var(--font-mono);
+}
+
+.tdwx-sim-input:disabled { opacity: 0.45; }
+
+.tdwx-sim-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.tdwx-sim-note {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin: 0 0 16px 0;
+}
+
+.tdwx-sim-note strong { color: var(--accent-warning); }
+
+.tdwx-leitura-dupla {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.tdwx-leitura {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-color);
+  border-left: 3px solid var(--accent-info);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+}
+
+.tdwx-leitura.ganho { border-left-color: var(--accent-primary); }
+.tdwx-leitura.perda { border-left-color: var(--accent-danger); }
+
+.tdwx-leitura-titulo {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+.tdwx-leitura-valor {
+  font-family: var(--font-mono);
+  font-size: 20px;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.tdwx-leitura-texto { font-size: 12px; color: var(--text-secondary); line-height: 1.5; }
+
+@media (max-width: 768px) {
+  .tdwx-sim-controls { grid-template-columns: 1fr; }
+  .tdwx-sim-grid { grid-template-columns: repeat(2, 1fr); }
+  .tdwx-leitura-dupla { grid-template-columns: 1fr; }
+}
+
+/* Slider (Dash 4) no tema dark */
+.tdwx-sim-card .dash-slider-mark {
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+.tdwx-sim-card .dash-slider-track { background: var(--border-strong); }
+.tdwx-sim-card .dash-slider-range { background: var(--accent-primary); }
+.tdwx-sim-card .dash-slider-thumb {
+  background: var(--accent-primary);
+  border: 2px solid var(--bg-card);
+}
+.tdwx-sim-card .dash-range-slider-input {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+}

@@ -182,6 +182,30 @@ def vna_implicito(tipo_titulo: str, vencimento, data_base, taxa_pct: float, pu: 
     return pu / preco_relativo(tipo_titulo, vencimento, data_base, taxa_pct)
 
 
+def fluxos_recebidos(
+    tipo_titulo: str, vencimento, data0, taxa0_pct: float, pu0: float,
+    data1, taxa1_pct: float, pu1: float,
+) -> float:
+    """Valor (R$) dos cupons/parcelas pagos entre as liquidacoes de ``data0`` e ``data1``.
+
+    Usa o VNA implicito nas duas datas (PU / fator) e interpola geometricamente
+    o VNA na data de cada pagamento. Em prefixados o "VNA" implicito e 1.
+    """
+    liq0, liq1 = pd.Timestamp(liquidacao(data0)), pd.Timestamp(liquidacao(data1))
+    datas, valores = fluxos(tipo_titulo, vencimento)
+    pagos = (datas > np.datetime64(liq0.date())) & (datas <= np.datetime64(liq1.date()))
+    if not pagos.any():
+        return 0.0
+    vna0 = vna_implicito(tipo_titulo, vencimento, data0, taxa0_pct, pu0)
+    vna1 = vna_implicito(tipo_titulo, vencimento, data1, taxa1_pct, pu1)
+    total_dias = max((liq1 - liq0).days, 1)
+    soma = 0.0
+    for d, v in zip(datas[pagos], valores[pagos]):
+        frac = (pd.Timestamp(d) - liq0).days / total_dias
+        soma += v * vna0 * (vna1 / vna0) ** frac
+    return float(soma)
+
+
 def decompor_retorno(
     tipo_titulo: str,
     vencimento,
@@ -191,6 +215,7 @@ def decompor_retorno(
     data1,
     taxa1_pct: float,
     pu1: float,
+    incluir_fluxos: bool = True,
 ) -> dict:
     """Separa o retorno entre duas datas em efeito-taxa e carrego (+ indexacao).
 
@@ -199,10 +224,16 @@ def decompor_retorno(
     - carrego_indexacao: o restante (passagem do tempo a taxa antiga + correcao
       do VNA pelo IPCA/Selic nos indexados). Fecha a identidade
       (1 + total) = (1 + efeito_taxa) * (1 + carrego_indexacao).
+    - Com ``incluir_fluxos`` (padrao), cupons/parcelas pagos no periodo entram
+      no retorno total de quem tinha o titulo (sem reinvestimento).
     """
     f_antiga = preco_relativo(tipo_titulo, vencimento, data1, taxa0_pct)
     f_nova = preco_relativo(tipo_titulo, vencimento, data1, taxa1_pct)
-    total = pu1 / pu0 - 1
+    recebidos = (
+        fluxos_recebidos(tipo_titulo, vencimento, data0, taxa0_pct, pu0, data1, taxa1_pct, pu1)
+        if incluir_fluxos else 0.0
+    )
+    total = (pu1 + recebidos) / pu0 - 1
     efeito_taxa = f_nova / f_antiga - 1
     carrego = (1 + total) / (1 + efeito_taxa) - 1
     return {
@@ -210,6 +241,7 @@ def decompor_retorno(
         "efeito_taxa": efeito_taxa,
         "carrego_indexacao": carrego,
         "delta_taxa_pp": taxa1_pct - taxa0_pct,
+        "fluxos_recebidos": recebidos,
     }
 
 

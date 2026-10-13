@@ -133,7 +133,9 @@ PESOS_FORMULA_C = {
 
 
 # === Indicadores macro (valores de referencia, atualizar manualmente) ===
-IPCA_ATUAL = 3.81  # IPCA acumulado 12 meses (% a.a.)
+# Referencias macro manuais (fonte: BCB/SGS). Substituidas por dados vivos na Fase 4.
+IPCA_ATUAL = 4.58  # IPCA acumulado 12 meses ate 09/2026 (SGS 13522), % a.a.
+SELIC_META_REF = 13.75  # Selic meta vigente em 10/2026 (SGS 432), % a.a.
 
 
 # === Fontes oficiais ===
