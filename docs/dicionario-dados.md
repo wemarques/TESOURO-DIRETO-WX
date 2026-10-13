@@ -37,6 +37,21 @@
 | `flag_produto_planejamento` | bool | True se Educa+ ou Renda+ | Produto temático |
 | `chave_titulo` | string | `{tipo_titulo}_{data_vencimento}` | Identificador único do título |
 
+### Métricas de risco de taxa (v1.1.0 — `src/analytics/duration.py`)
+
+Calculadas sobre o fluxo de caixa de cada título, em dias úteis/252 (calendário ANBIMA) e liquidação D+1 (a mesma do PU de compra). Os PUs de Prefixado e Prefixado com Juros reproduzem os publicados pelo Tesouro no centavo; nos títulos IPCA o VNA implícito coincide entre todos os títulos do mesmo dia.
+
+| Variável | Tipo | Cálculo | Finalidade |
+|---|---|---|---|
+| `duration_macaulay` | float | Σ tₖ·VPₖ / Σ VPₖ (anos) | Prazo médio ponderado dos fluxos |
+| `duration_modificada` | float | Macaulay / (1 + i) | Variação % do PU por 1 p.p. de taxa (1ª ordem) |
+| `convexidade` | float | Σ tₖ(tₖ+1)·VPₖ / [PU·(1+i)²] | Correção de 2ª ordem: ΔPU/PU ≈ −MD·Δi + ½·C·Δi² |
+| `duration_risco` | float | `duration_modificada`; **0 no Tesouro Selic** | Penalidade do Score B (Selic não tem risco de juros) |
+| `var_pct_taxa_menos_1pp` | float | Reprecificação exata com taxa −1 p.p. (NaN no Selic) | Ganho de marcação a mercado |
+| `var_pct_taxa_mais_1pp` | float | Reprecificação exata com taxa +1 p.p. (NaN no Selic) | Perda de marcação a mercado |
+
+Fluxos por família: Prefixado = 1000 no vencimento; Prefixado c/ Juros = cupom 48,80885 em 01/01 e 01/07; IPCA+ = 1 VNA no vencimento; IPCA+ c/ Juros = cupom (1,06^0,5−1) semestral; IGPM+ c/ Juros = cupom (1,12^0,5−1); Renda+ = 240 parcelas mensais de VNA/240 terminando no vencimento; Educa+ = 60 parcelas de VNA/60. **No Renda+ e no Educa+ `data_vencimento` é a última parcela** (o "Renda+ 2065" vence em 15/12/2084).
+
 ## 3. Famílias de títulos reconhecidas
 
 | Família | Código interno | Indexador | Cupom | Grupo analítico |

@@ -51,7 +51,7 @@ A etapa de preparação de dados deve transformar a base original em uma base an
 | Prazo | dias_ate_vencimento, anos_ate_vencimento | Segmentação e risco de taxa |
 | Estrutura | flag_cupom, flag_indexado_inflacao, flag_pos_fixado, flag_produto_planejamento | Regras de comparabilidade |
 | Curva | taxa_teorica_curva, residuo_curva, slope_local, curvature_local | Medidas de valor relativo |
-| Risco | duration_aprox, convexidade_aprox, dv01_aprox | Controle de exposição |
+| Risco | duration_macaulay, duration_modificada, convexidade, duration_risco (v1.1.0, por fluxo de caixa) | Controle de exposição |
 | Qualidade | flag_outlier, flag_interpolado, flag_inconsistencia_preco_taxa | Validação e auditoria |
 
 A padronização numérica deve converter vírgula decimal para ponto, normalizar datas para tipo calendário, padronizar nomes de colunas e criar um dicionário de famílias de títulos. Além disso, os dados devem ser persistidos com metadados de ingestão, incluindo data de carga, hash do arquivo bruto e versão da metodologia aplicada à transformação.

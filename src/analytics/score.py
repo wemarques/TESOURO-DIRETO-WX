@@ -50,7 +50,8 @@ def calcular_score_b(df: pd.DataFrame) -> pd.DataFrame:
 
     Score_B = 0.35 × Carry + 0.30 × RV + 0.15 × Liquidez + 0.20 × Risco
 
-    Risco_Norm = 1 - duration_norm (penaliza duration alta)
+    Risco_Norm = 1 - duration_norm (penaliza duration modificada alta;
+    Tesouro Selic tem duration_risco = 0, sem penalidade)
     Requer colunas: carry_norm, rv_norm, liquidez_norm, duration_norm
     """
     df = df.copy()
