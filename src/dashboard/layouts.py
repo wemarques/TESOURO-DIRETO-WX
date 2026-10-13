@@ -668,8 +668,81 @@ def pagina_titulo(titulos: list):
                 ],
                 className="tdwx-charts-grid",
             ),
+            bloco_simulador(),
         ],
         className="tdwx-container",
+    )
+
+
+def bloco_simulador() -> html.Div:
+    """Simulador de marcacao a mercado da pagina /titulo (Fase 5)."""
+    return html.Div(
+        [
+            html.H2("Simulador de marcação a mercado", className="tdwx-sim-title"),
+            html.P(
+                "E se a taxa deste título mudar até você vender? O simulador compra hoje "
+                "ao preço de compra, vende ao Tesouro no horizonte escolhido (à taxa de "
+                "venda, mantendo o spread de hoje) e desconta IR regressivo, IOF e "
+                "custódia de 0,20% a.a.",
+                className="tdwx-sim-subtitle",
+            ),
+            html.Div(
+                [
+                    html.Div(
+                        [
+                            html.Label(
+                                "Variação da taxa até a venda (p.p.)",
+                                className="tdwx-filter-label",
+                            ),
+                            dcc.Slider(
+                                id="sim-delta",
+                                min=-2,
+                                max=2,
+                                step=0.25,
+                                value=-1,
+                                marks={v: f"{v:+g}" for v in (-2, -1, 0, 1, 2)},
+                            ),
+                        ],
+                        className="tdwx-sim-control-wide",
+                    ),
+                    html.Div(
+                        [
+                            html.Label("Horizonte", className="tdwx-filter-label"),
+                            dcc.Dropdown(
+                                id="sim-horizonte",
+                                options=[
+                                    {"label": f"{m} {'mês' if m == 1 else 'meses'}", "value": m}
+                                    for m in (1, 3, 6, 12, 18, 24, 36, 60)
+                                ],
+                                value=12,
+                                clearable=False,
+                            ),
+                        ]
+                    ),
+                    html.Div(
+                        [
+                            html.Label(
+                                "Indexador projetado (% a.a.)",
+                                id="sim-indexador-label",
+                                className="tdwx-filter-label",
+                            ),
+                            dcc.Input(
+                                id="sim-indexador",
+                                type="number",
+                                step=0.1,
+                                debounce=True,
+                                className="tdwx-sim-input",
+                            ),
+                        ]
+                    ),
+                ],
+                className="tdwx-sim-controls",
+            ),
+            html.Div(id="sim-resultado"),
+            html.Div(dcc.Graph(id="sim-heatmap"), className="tdwx-chart-wrapper"),
+            aviso_legal(compact=True),
+        ],
+        className="tdwx-sim-card",
     )
 
 
