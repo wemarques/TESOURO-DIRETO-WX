@@ -164,3 +164,47 @@ def test_backtest_renda_2065_decomposicao():
     du = dias_uteis("2025-01-24", "2025-07-11")
     carrego_esperado = (vna1 / vna0) * 1.0749 ** (du / 252) - 1
     assert d["carrego_indexacao"] == pytest.approx(carrego_esperado, abs=0.002)
+
+
+# --- Fase 2: inflacao implicita e nomes curtos -------------------------------
+
+def test_inflacao_implicita_interpola_na_duration_e_nao_extrapola():
+    from src.analytics.duration import calcular_inflacao_implicita
+
+    df = pd.DataFrame(
+        {
+            "tipo_titulo": [
+                "Tesouro Prefixado", "Tesouro Prefixado",
+                "Tesouro IPCA+", "Tesouro Renda+ Aposentadoria Extra",
+            ],
+            "data_vencimento": pd.to_datetime(
+                ["2029-01-01", "2032-01-01", "2029-05-15", "2084-12-15"]
+            ),
+            "data_base": pd.to_datetime([DATA] * 4),
+            "taxa_compra_manha": [12.55, 12.82, 6.91, 6.47],
+        }
+    )
+    out = calcular_inflacao_implicita(calcular_duration(df))
+    ipca = out.iloc[2]
+    assert 12.55 < ipca["taxa_nominal_equivalente"] <= 12.82
+    assert ipca["inflacao_implicita"] == pytest.approx(
+        inflacao_implicita(ipca["taxa_nominal_equivalente"], 6.91)
+    )
+    assert np.isnan(out.iloc[3]["inflacao_implicita"])  # duration 46 >> curva prefixada
+    assert out.iloc[:2]["inflacao_implicita"].isna().all()  # so titulos IPCA
+
+
+@pytest.mark.parametrize(
+    "tipo, venc, esperado",
+    [
+        ("Tesouro Renda+ Aposentadoria Extra", "2084-12-15", "Renda+ 2065"),
+        ("Tesouro Renda+ Aposentadoria Extra", "2049-12-15", "Renda+ 2030"),
+        ("Tesouro Educa+", "2031-12-15", "Educa+ 2027"),
+        ("Tesouro IPCA+ com Juros Semestrais", "2060-08-15", "IPCA+ Juros 2060"),
+        ("Tesouro Prefixado", "2029-01-01", "Prefixado 2029"),
+    ],
+)
+def test_nome_curto_segue_padrao_do_tesouro(tipo, venc, esperado):
+    from src.utils.nomes import nome_curto
+
+    assert nome_curto(tipo, venc) == esperado

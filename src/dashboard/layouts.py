@@ -329,6 +329,11 @@ def pagina_ranking(familias: list[str]):
                                 "value": "rv_zscore",
                             },
                             {"label": "Taxa Compra", "value": "taxa_compra_manha"},
+                            {"label": "Duration modificada", "value": "duration_modificada"},
+                            {
+                                "label": "Ganho se taxa cair 1 p.p.",
+                                "value": "var_pct_taxa_menos_1pp",
+                            },
                         ],
                         value="score",
                         clearable=False,
@@ -345,7 +350,9 @@ def pagina_ranking(familias: list[str]):
         sort_action="native",
         tooltip_delay=0,
         tooltip_duration=None,
-        style_table={"overflowX": "auto"},
+        # Coluna "Titulo" fixa: a tabela ganhou colunas de risco e rola na horizontal
+        fixed_columns={"headers": True, "data": 1},
+        style_table={"overflowX": "auto", "minWidth": "100%"},
         style_cell={
             "textAlign": "left",
             "padding": "12px 10px",

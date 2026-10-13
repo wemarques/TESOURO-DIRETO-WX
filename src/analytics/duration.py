@@ -263,3 +263,49 @@ def calcular_duration(df: pd.DataFrame, coluna_taxa: str = "taxa_compra_manha") 
     pos = df["tipo_titulo"].isin(TIPOS_POS_FIXADOS)
     df["duration_risco"] = df["duration_modificada"].where(~pos, 0.0)
     return df
+
+
+TIPOS_IPCA = {
+    "Tesouro IPCA+",
+    "Tesouro IPCA+ com Juros Semestrais",
+    "Tesouro Renda+ Aposentadoria Extra",
+    "Tesouro Educa+",
+}
+TIPOS_NOMINAIS = {"Tesouro Prefixado", "Tesouro Prefixado com Juros Semestrais"}
+
+
+def calcular_inflacao_implicita(
+    df: pd.DataFrame, coluna_taxa: str = "taxa_compra_manha", folga_anos: float = 0.5
+) -> pd.DataFrame:
+    """Inflacao implicita (Fisher) de cada titulo IPCA contra a curva prefixada.
+
+    Para cada data, a taxa nominal de referencia e interpolada (linear) na
+    duration de Macaulay do titulo IPCA, usando os pontos (duration, taxa) dos
+    Prefixados e Prefixados com Juros do mesmo dia. Fora do alcance da curva
+    prefixada (+ ``folga_anos``) o valor fica NaN: extrapolar uma curva de ~6
+    anos para um Renda+ de 46 anos de duration seria inventar numero.
+
+    Requer ``duration_macaulay`` (ver ``calcular_duration``). Cria
+    ``taxa_nominal_equivalente`` e ``inflacao_implicita`` (% a.a.).
+    """
+    df = df.copy()
+    df["taxa_nominal_equivalente"] = np.nan
+    df["inflacao_implicita"] = np.nan
+
+    for _, dia in df.groupby("data_base"):
+        nom = dia[dia["tipo_titulo"].isin(TIPOS_NOMINAIS)].dropna(
+            subset=["duration_macaulay", coluna_taxa]
+        )
+        if len(nom) < 2:
+            continue
+        nom = nom.sort_values("duration_macaulay")
+        x, y = nom["duration_macaulay"].to_numpy(), nom[coluna_taxa].to_numpy()
+        reais = dia[dia["tipo_titulo"].isin(TIPOS_IPCA)]
+        dur = reais["duration_macaulay"].to_numpy()
+        dentro = (dur >= x.min() - folga_anos) & (dur <= x.max() + folga_anos)
+        nominal = np.where(dentro, np.interp(dur, x, y), np.nan)
+        df.loc[reais.index, "taxa_nominal_equivalente"] = nominal
+        df.loc[reais.index, "inflacao_implicita"] = (
+            (1 + nominal / 100) / (1 + reais[coluna_taxa].to_numpy() / 100) - 1
+        ) * 100
+    return df
