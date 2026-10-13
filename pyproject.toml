@@ -12,7 +12,7 @@ dependencies = [
     "scipy>=1.13,<2",
     "requests>=2.31,<3",
     "python-dateutil>=2.9",
-    "pyarrow>=15.0,<22",  # teto: pyarrow >=22 compila contra numpy 2 e quebra o import com numpy 1.x
+    "pyarrow>=15.0,<26",  # teto: pyarrow 26 quebra o import com o numpy 1.26 fixado acima
     "schedule>=1.2",
 ]
 
