@@ -3,7 +3,19 @@
 Todas as alterações relevantes do projeto são documentadas aqui.
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
-## [2026-10-13]
+## [2026-10-13] — Metodologia v1.1.0 (marcação a mercado, Fase 1)
+
+### Adicionado
+- `src/analytics/calendario.py`: calendário ANBIMA por regra (feriados fixos, móveis pela Páscoa e 20/11 desde 2024) e contagem de dias úteis
+- `src/analytics/duration.py`: fluxos de caixa por família, duration de Macaulay e modificada, convexidade, variação exata do PU para ±1 p.p., VNA implícito, inflação implícita (Fisher) e decomposição do retorno em efeito-taxa × carrego/indexação
+- Colunas `duration_macaulay`, `duration_modificada`, `convexidade`, `var_pct_taxa_menos_1pp` e `var_pct_taxa_mais_1pp` na base analítica e no ranking
+- `tests/test_duration.py`: âncoras do vídeo de marcação a mercado, PUs publicados no centavo, VNA implícito comum a todos os títulos IPCA e backtest do Renda+ 2065 (23/01/2025 → 10/07/2025)
+
+### Corrigido
+- Score B penalizava prazo e não duration: o Renda+/Educa+ era medido pela última parcela (ex.: 58 anos no Renda+ 2065, contra ~46 de duration real) e o Tesouro Selic recebia penalidade de juros que não tem. A penalidade passa a usar `duration_risco` (duration modificada; zero no Selic)
+
+### Alterado
+- Versão da metodologia: v1.0.0 → v1.1.0
 
 ### Corrigido
 - "Melhor Título do Dia" sugeria títulos fora de venda (ex.: Tesouro Prefixado 2027, que só aceita resgate). CKAN e BRAPI publicam taxa de compra para todos os títulos, sem indicar disponibilidade

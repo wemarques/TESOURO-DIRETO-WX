@@ -7,6 +7,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src.utils.constants import DATA_ENRIQUECIDO, DATA_PROCESSED, DATA_OUTPUTS
 
+COLS_RISCO = [
+    "duration_macaulay", "duration_modificada", "convexidade",
+    "var_pct_taxa_menos_1pp", "var_pct_taxa_mais_1pp",
+]
+
 
 def main():
     """Executa pipeline analítico completo."""
@@ -53,9 +58,9 @@ def main():
     snapshot_date = ranking["data_base"].iloc[0]
     extras = df.loc[
         df["data_base"] == snapshot_date,
-        ["tipo_titulo", "data_vencimento", "score_b", "score_c"],
+        ["tipo_titulo", "data_vencimento", "score_b", "score_c", *COLS_RISCO],
     ]
-    for col in ["score_b", "score_c"]:
+    for col in ["score_b", "score_c", *COLS_RISCO]:
         if col not in ranking.columns:
             ranking = ranking.merge(
                 extras[["tipo_titulo", "data_vencimento", col]],
@@ -75,6 +80,8 @@ def main():
         "taxa_compra_manha", "taxa_venda_manha", "pu_compra_manha", "pu_venda_manha",
         "spread_compra_venda", "carry", "rv_zscore", "liquidez_norm",
         "score_a", "score_b", "score_c",
+        "duration_macaulay", "duration_modificada", "convexidade",
+        "var_pct_taxa_menos_1pp", "var_pct_taxa_mais_1pp",
     ]
     cols_existentes = [c for c in cols_dashboard if c in df.columns]
     df[cols_existentes].to_parquet(DATA_OUTPUTS / "base_analitica.parquet", index=False)

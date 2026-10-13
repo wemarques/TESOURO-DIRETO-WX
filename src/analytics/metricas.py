@@ -5,7 +5,7 @@ Calcula:
 - Carry normalizado por grupo
 - Valor relativo (z-score intragrupo)
 - Liquidez normalizada
-- Duration aproximada (para Fórmula B)
+- Duration de Macaulay/modificada e convexidade por fluxo de caixa (src/analytics/duration.py)
 """
 
 import logging
@@ -80,14 +80,16 @@ def calcular_liquidez(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def calcular_duration_aprox(df: pd.DataFrame) -> pd.DataFrame:
-    """Duration aproximada (anos até vencimento como proxy simples)."""
-    df = df.copy()
-    # Proxy simples: para títulos bullet, duration ≈ prazo
-    # Para cupom, duration < prazo — aplicar fator de desconto
-    fator_cupom = df["flag_cupom"].map({True: 0.75, False: 1.0})
-    df["duration_aprox"] = df["anos_ate_vencimento"] * fator_cupom
-    return df
+def calcular_risco_taxa(df: pd.DataFrame) -> pd.DataFrame:
+    """Duration/convexidade por fluxo de caixa (du/252, ANBIMA).
+
+    Substitui a antiga ``duration_aprox`` (prazo x 0,75 se cupom), que tratava o
+    Renda+/Educa+ pelo vencimento da ultima parcela e o Tesouro Selic como se
+    tivesse risco de juros. ``duration_risco`` (0 no Selic) alimenta o Score B.
+    """
+    from src.analytics.duration import calcular_duration
+
+    return calcular_duration(df)
 
 
 def calcular_metricas(df: pd.DataFrame) -> pd.DataFrame:
@@ -105,7 +107,7 @@ def calcular_metricas(df: pd.DataFrame) -> pd.DataFrame:
     df = calcular_carry(df)
     df = calcular_rv_zscore(df)
     df = calcular_liquidez(df)
-    df = calcular_duration_aprox(df)
+    df = calcular_risco_taxa(df)
 
     # Normalizar por data_base
     for data, grupo in df.groupby("data_base"):
@@ -123,7 +125,7 @@ def calcular_metricas(df: pd.DataFrame) -> pd.DataFrame:
         df.loc[mask, "liquidez_norm"] = _minmax_norm(grupo["liquidez_raw"]).values
 
         # Duration normalizada (para Fórmula B)
-        dur_w = _winsorize(grupo["duration_aprox"], cfg.winsorize_percentil)
+        dur_w = _winsorize(grupo["duration_risco"], cfg.winsorize_percentil)
         df.loc[mask, "duration_norm"] = _minmax_norm(dur_w).values
 
     logger.info("Métricas calculadas para %d registros", len(df))

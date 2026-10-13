@@ -55,7 +55,7 @@ class Config:
     ingestao: ConfigIngestao = field(default_factory=ConfigIngestao)
     analytics: ConfigAnalytics = field(default_factory=ConfigAnalytics)
     dashboard: ConfigDashboard = field(default_factory=ConfigDashboard)
-    versao_metodologia: str = "v1.0.0"
+    versao_metodologia: str = "v1.1.0"
 
 
 # Instância global
