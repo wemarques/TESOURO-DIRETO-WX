@@ -1,0 +1,21 @@
+{
+  "selic_meta": {
+    "valor": 13.75,
+    "data": "2026-11-04"
+  },
+  "ipca_12m": {
+    "valor": 4.58,
+    "data": "2026-09-01"
+  },
+  "ano_focus_selic": 2027,
+  "atualizado_em": "2026-10-13T12:12:03",
+  "erros": [],
+  "focus_ipca_12m": {
+    "valor": 4.4772,
+    "data": "2026-10-09"
+  },
+  "focus_selic_fim_ano_seguinte": {
+    "valor": 12.0,
+    "data": "2026-10-09"
+  }
+}

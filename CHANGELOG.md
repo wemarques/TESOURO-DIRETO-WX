@@ -19,6 +19,10 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 - `src/analytics/simulador.py`: simulação de compra hoje e venda ao Tesouro (taxa de venda, liquidação D+0), com cupons/parcelas recebidos e VNA projetado
 - `/titulo`: "Efeito no preço" vira leitura dupla — quem já tinha o título (retorno em 12 meses separado em marcação e carrego, com cupons/parcelas recebidos) × quem entra hoje (quanto paga a mais ou a menos pela variação da taxa)
 
+- Contexto macro (Fase 4): `src/ingestao/macro.py` + `scripts/rodar_macro.py` coletam Selic meta (SGS 432), IPCA 12 meses (SGS 13522) e Focus (IPCA 12 meses e Selic no fim do ano seguinte, API Olinda) em `data/outputs/macro.json`. Passo novo no workflow de ingestão, sem bloquear os dados do Tesouro se o BCB falhar; cada fonte que falha mantém o valor anterior
+- `/titulo`: painel "Condições para a tese de queda de taxa" (curva prefixada em queda em 30 e 90 dias, Focus esperando Selic menor, taxa do título no percentil ≥ 80 dos últimos 24 meses), descritivo e sem veredito
+- Simulador usa o IPCA esperado pelo Focus e a Selic meta do BCB como padrão
+
 ### Corrigido
 - `IPCA_ATUAL` estava em 3,81%; atualizado para 4,58% (IPCA 12 meses até 09/2026, SGS 13522). Adicionado `SELIC_META_REF` = 13,75% (SGS 432)
 - Score B penalizava prazo e não duration: o Renda+/Educa+ era medido pela última parcela (ex.: 58 anos no Renda+ 2065, contra ~46 de duration real) e o Tesouro Selic recebia penalidade de juros que não tem. A penalidade passa a usar `duration_risco` (duration modificada; zero no Selic)

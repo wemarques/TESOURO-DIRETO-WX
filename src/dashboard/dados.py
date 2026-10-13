@@ -11,6 +11,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from src.ingestao.macro import valores_macro
 from src.ingestao.registro import obter_ultima_ingestao
 from src.utils.config import config
 from src.utils.constants import (
@@ -205,6 +206,7 @@ class EstadoDados:
     titulos_detalhados: list[dict] = field(default_factory=list)
     grupos_analiticos: list[str] = field(default_factory=list)
     info_ingestao: dict = field(default_factory=dict)
+    macro: dict = field(default_factory=dict)
     carregado_em: datetime | None = None
     versao_metodologia: str = config.versao_metodologia
 
@@ -259,6 +261,8 @@ class EstadoDados:
         ]
         self.grupos_analiticos = sorted(df_historico["grupo_analitico"].unique().tolist())
         self.info_ingestao = info_ingestao
+        # Selic/IPCA/Focus (data/outputs/macro.json), com fallback nas constantes
+        self.macro = valores_macro()
         self.carregado_em = datetime.now(BRT)
 
     def meta(self) -> dict:

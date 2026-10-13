@@ -1561,3 +1561,41 @@ small { color: var(--text-muted); }
   border-radius: var(--radius-sm);
   font-family: var(--font-mono);
 }
+
+/* Painel de condicoes da tese (Fase 4) */
+.tdwx-cond-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 16px 18px;
+  margin-bottom: 24px;
+}
+.tdwx-cond-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.tdwx-cond-titulo {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-secondary);
+}
+.tdwx-cond-placar { font-family: var(--font-mono); font-size: 16px; color: var(--text-primary); }
+.tdwx-cond-linha {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  gap: 8px;
+  padding: 8px 0;
+  border-top: 1px solid var(--border-color);
+}
+.tdwx-cond-icone { font-family: var(--font-mono); font-size: 16px; text-align: center; }
+.tdwx-cond-icone.ok { color: var(--accent-primary); }
+.tdwx-cond-icone.nao { color: var(--accent-danger); }
+.tdwx-cond-icone.sem { color: var(--text-muted); }
+.tdwx-cond-nome { font-size: 13px; color: var(--text-primary); }
+.tdwx-cond-detalhe { font-size: 12px; color: var(--text-secondary); line-height: 1.5; }
+.tdwx-cond-rodape { font-size: 11px; color: var(--text-muted); margin: 10px 0 0 0; }
