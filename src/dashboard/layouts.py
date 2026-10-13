@@ -299,6 +299,10 @@ def pagina_ranking(familias: list[str]):
                                 "label": "Score C (curva NSS)",
                                 "value": "score_c",
                             },
+                            {
+                                "label": "Score D (marcação a mercado)",
+                                "value": "score_d",
+                            },
                         ],
                         value="score_a",
                         clearable=False,
@@ -330,6 +334,7 @@ def pagina_ranking(familias: list[str]):
                             },
                             {"label": "Taxa Compra", "value": "taxa_compra_manha"},
                             {"label": "Duration modificada", "value": "duration_modificada"},
+                            {"label": "Margem vs CDI (12m)", "value": "margem_cdi_12m_pp"},
                             {
                                 "label": "Ganho se taxa cair 1 p.p.",
                                 "value": "var_pct_taxa_menos_1pp",
@@ -431,6 +436,7 @@ def pagina_ranking(familias: list[str]):
             ),
             summary_section,
             filtros_section,
+            html.Div(id="ranking-aviso-score"),
             html.Div(
                 dcc.Graph(id="ranking-bar-chart"),
                 className="tdwx-chart-wrapper",
@@ -1048,14 +1054,48 @@ def pagina_guia():
                             ),
                             html.H6("Score B (ajustado por risco)"),
                             html.P(
-                                "Igual ao Score A, mas penaliza títulos de prazo muito "
-                                "longo (que oscilam mais)."
+                                "Igual ao Score A, mas penaliza títulos de duration alta "
+                                "(que oscilam mais com a taxa). Desde a v1.1.0 usa a "
+                                "duration real do fluxo de caixa; o Tesouro Selic não é "
+                                "penalizado, pois não tem risco de juros."
                             ),
                             html.H6("Score C (resíduo de curva)"),
                             html.P(
                                 "Score mais sofisticado: ajusta uma curva teórica de juros "
                                 "(Nelson-Siegel-Svensson) e aponta títulos que pagam mais "
                                 "do que a curva sugere."
+                            ),
+                            html.H6("Score D (marcação a mercado)"),
+                            html.P(
+                                "Responde a outra pergunta: se a taxa cair, qual título "
+                                "mais se beneficia? Premia duration (45%), taxa alta no "
+                                "próprio histórico de 24 meses (30%), resíduo da curva "
+                                "(15%) e liquidez (10%), comparando prefixados com "
+                                "prefixados e títulos de inflação entre si. Só faz "
+                                "sentido sob uma tese explícita de queda de taxa — "
+                                "veja o painel de condições em Título Individual."
+                            ),
+                            html.H6("Duration e convexidade"),
+                            html.P(
+                                "Duration é o prazo médio dos pagamentos, não o prazo até "
+                                "o vencimento. A duration modificada diz quanto o preço "
+                                "varia, em %, para 1 p.p. de mudança na taxa. Ex.: o "
+                                "Renda+ 2065 tem duration modificada ~43: se a taxa cair "
+                                "1 p.p. o preço sobe ~54%; se subir 1 p.p., cai ~35%. A "
+                                "assimetria é a convexidade."
+                            ),
+                            html.H6("Margem vs CDI (12 meses)"),
+                            html.P(
+                                "Quantos p.p. a taxa pode subir em 12 meses antes de o "
+                                "título render menos que o CDI esperado (média entre a "
+                                "Selic atual e a do Focus). Negativo = a taxa precisa "
+                                "cair esse tanto só para empatar com o CDI."
+                            ),
+                            html.H6("Inflação implícita"),
+                            html.P(
+                                "(1 + taxa prefixada) ÷ (1 + taxa real) − 1, na mesma "
+                                "duration. Se o IPCA médio ficar acima disso, o IPCA+ "
+                                "rende mais que o prefixado."
                             ),
                             html.H6("Carry"),
                             html.P(
@@ -1100,6 +1140,15 @@ def pagina_guia():
                                 "Se você levar o título até o vencimento, sempre recebe "
                                 "a taxa contratada na compra. A oscilação só importa se "
                                 "você decidir vender antes."
+                            ),
+                            html.H6("Faca de dois gumes"),
+                            html.P(
+                                "O Renda+ 2065 subiu ~27% entre jan e jul/2025 com a taxa "
+                                "caindo de 7,49% para 7,08% — mas antes disso tinha caído "
+                                "de ~R$ 244 para ~R$ 133 quando a taxa subiu de 6,0% para "
+                                "7,5%. Quanto maior a duration, maior o ganho na queda e "
+                                "a perda na alta. Use o simulador em Título Individual "
+                                "para ver os dois lados antes de decidir."
                             ),
                         ],
                         title="📈 Marcação a mercado",

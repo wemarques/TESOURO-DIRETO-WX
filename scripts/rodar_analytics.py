@@ -12,6 +12,7 @@ COLS_RISCO = [
     "var_pct_taxa_menos_1pp", "var_pct_taxa_mais_1pp",
     "taxa_nominal_equivalente", "inflacao_implicita",
 ]
+COLS_MARCACAO = ["score_d", "percentil_taxa_24m", "margem_cdi_12m_pp", "cdi_esperado_12m"]
 
 
 def main():
@@ -54,6 +55,16 @@ def main():
     df = calcular_score_b(df)
     df = calcular_score_c(df)
 
+    # 4b. Score D (marcacao a mercado) e margem vs CDI — so no snapshot atual
+    print("  → Calculando Score D e margem vs CDI...")
+    from src.analytics.marcacao import calcular_margem_cdi, calcular_score_d
+    from src.ingestao.macro import valores_macro
+    snap = df[df["data_base"] == df["data_base"].max()]
+    snap = calcular_margem_cdi(calcular_score_d(snap, df), valores_macro())
+    for col in COLS_MARCACAO:
+        df[col] = float("nan")
+        df.loc[snap.index, col] = snap[col]
+
     # 5. Gerar ranking (usa score_a para posições, inclui score_b e score_c)
     print("  → Gerando rankings...")
     from src.analytics.ranking import gerar_ranking
@@ -63,9 +74,9 @@ def main():
     snapshot_date = ranking["data_base"].iloc[0]
     extras = df.loc[
         df["data_base"] == snapshot_date,
-        ["tipo_titulo", "data_vencimento", "score_b", "score_c", *COLS_RISCO],
+        ["tipo_titulo", "data_vencimento", "score_b", "score_c", *COLS_RISCO, *COLS_MARCACAO],
     ]
-    for col in ["score_b", "score_c", *COLS_RISCO]:
+    for col in ["score_b", "score_c", *COLS_RISCO, *COLS_MARCACAO]:
         if col not in ranking.columns:
             ranking = ranking.merge(
                 extras[["tipo_titulo", "data_vencimento", col]],
@@ -91,7 +102,7 @@ def main():
     ]
     cols_existentes = [c for c in cols_dashboard if c in df.columns]
     df[cols_existentes].to_parquet(DATA_OUTPUTS / "base_analitica.parquet", index=False)
-    print(f"  ✓ Ranking salvo — {len(ranking)} títulos (Score A + B + C)")
+    print(f"  ✓ Ranking salvo — {len(ranking)} títulos (Score A + B + C + D)")
 
     print("\n✅ Analytics concluído.\n")
 

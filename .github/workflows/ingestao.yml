@@ -48,13 +48,14 @@ jobs:
           BRAPI_TOKEN: ${{ secrets.BRAPI_TOKEN }}
         run: python scripts/rodar_ingestao.py --forcar
 
-      - name: Rodar analytics (scores + ranking)
-        run: python scripts/rodar_analytics.py
-
-      # Selic/IPCA (SGS) e Focus (Olinda). Falha aqui nao bloqueia os dados do Tesouro.
+      # Selic/IPCA (SGS) e Focus (Olinda). Antes do analytics: alimenta o
+      # Score D/margem vs CDI. Falha aqui nao bloqueia os dados do Tesouro.
       - name: Coletar contexto macro (BCB)
         continue-on-error: true
         run: python scripts/rodar_macro.py
+
+      - name: Rodar analytics (scores + ranking)
+        run: python scripts/rodar_analytics.py
 
       - name: Commitar dados atualizados
         run: |

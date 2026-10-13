@@ -62,6 +62,7 @@ def _formatar_pct(v: float) -> str:
 COLS_RISCO_RANKING = [
     "duration_macaulay", "duration_modificada", "convexidade",
     "var_pct_taxa_menos_1pp", "var_pct_taxa_mais_1pp", "inflacao_implicita",
+    "score_d", "margem_cdi_12m_pp", "cdi_esperado_12m",
 ]
 
 
@@ -385,6 +386,7 @@ def registrar_callbacks(app, estado: EstadoDados):
         "score_a": "Score A (base)",
         "score_b": "Score B (risco)",
         "score_c": "Score C (curva)",
+        "score_d": "Score D (marcação)",
     }
 
     TOOLTIPS_COLUNAS = {
@@ -469,6 +471,17 @@ def registrar_callbacks(app, estado: EstadoDados):
             "com a prefixada interpolada na mesma duration. Se o IPCA medio ficar acima "
             "disso, o IPCA+ rende mais que o prefixado. So e calculada dentro do alcance "
             "da curva prefixada (ate ~6 anos)."
+        ),
+        "margem_cdi_str": (
+            "Quantos p.p. a taxa pode SUBIR em 12 meses antes de o titulo render menos "
+            "que o CDI esperado no periodo (retorno bruto, com spread de venda). "
+            "Negativo = a taxa precisa CAIR esse tanto so para empatar com o CDI."
+        ),
+        "score_d": (
+            "Score D (marcacao a mercado): duration 45% + taxa alta no historico 24m 30% "
+            "+ residuo da curva 15% + liquidez 10%, comparando no grupo amplo (prefixados "
+            "entre si; titulos de inflacao entre si). So faz sentido sob tese explicita "
+            "de queda de taxa."
         ),
         "disponivel_str": (
             "Se o titulo esta disponivel para compra hoje no Tesouro Direto. "
@@ -602,6 +615,9 @@ def registrar_callbacks(app, estado: EstadoDados):
         df["inflacao_implicita_str"] = df["inflacao_implicita"].apply(
             lambda v: "—" if pd.isna(v) else f"{v:.2f}%"
         )
+        df["margem_cdi_str"] = df["margem_cdi_12m_pp"].apply(
+            lambda v: "—" if pd.isna(v) else f"{v:+.2f} pp".replace(".", ",")
+        )
 
         colunas_tabela = [
             ("titulo_label", "Titulo"),
@@ -621,6 +637,7 @@ def registrar_callbacks(app, estado: EstadoDados):
             ("var_menos_1pp_str", "Δ PU se taxa −1pp"),
             ("var_mais_1pp_str", "Δ PU se taxa +1pp"),
             ("inflacao_implicita_str", "Inflação implícita"),
+            ("margem_cdi_str", "Margem vs CDI 12m"),
             (score_col, score_label),
             ("posicao_celula", "Pos. Celula"),
             ("posicao_global", "Pos. Global"),
@@ -1222,6 +1239,33 @@ def registrar_callbacks(app, estado: EstadoDados):
         h = estado.df_historico
         sel = h[(h["tipo_titulo"] == tipo) & (h["data_vencimento"] == pd.Timestamp(venc))]
         return None if sel.empty else sel.sort_values("data_base").iloc[-1]
+
+    @app.callback(
+        Output("ranking-aviso-score", "children"),
+        Input("ranking-score-dropdown", "value"),
+    )
+    def aviso_score(score_col: str):
+        if score_col != "score_d":
+            return None
+        cdi = estado.df_ranking.get("cdi_esperado_12m")
+        cdi_txt = (
+            f" CDI esperado em 12 meses: {cdi.dropna().iloc[0]:.2f}% a.a."
+            if cdi is not None and cdi.notna().any() else ""
+        )
+        return html.Div(
+            html.P(
+                [
+                    html.Strong("Score D responde: se a taxa cair, quem ganha mais? "),
+                    "Ele premia duration e só faz sentido sob uma tese explícita de queda "
+                    "de taxa — confira o painel de condições em Título Individual. Num "
+                    "ciclo de alta, os primeiros da lista são os que mais perdem. "
+                    "Compare com a coluna Margem vs CDI." + cdi_txt,
+                ],
+                className="tdwx-aviso-legal-text",
+            ),
+            className="tdwx-aviso-legal",
+            role="note",
+        )
 
     @app.callback(
         Output("sim-indexador", "value"),

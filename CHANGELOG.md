@@ -23,6 +23,11 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 - `/titulo`: painel "Condições para a tese de queda de taxa" (curva prefixada em queda em 30 e 90 dias, Focus esperando Selic menor, taxa do título no percentil ≥ 80 dos últimos 24 meses), descritivo e sem veredito
 - Simulador usa o IPCA esperado pelo Focus e a Selic meta do BCB como padrão
 
+- Score D (marcação a mercado) no seletor do ranking: duration 45% + percentil da taxa em 24 meses 30% + resíduo da curva 15% + liquidez 10%, normalizado no grupo amplo (prefixados entre si; títulos de inflação entre si — exceção documentada à regra de comparabilidade). Sem Score D para o Tesouro Selic. Aviso de contexto ao selecioná-lo
+- Coluna "Margem vs CDI 12m": quantos p.p. a taxa pode subir em 12 meses antes de render menos que o CDI esperado (média Selic atual × Focus, du/252); negativo = precisa cair para empatar
+- Guia: Score D, duration e convexidade, margem vs CDI, inflação implícita e "faca de dois gumes" com o caso Renda+ 2065
+- Workflow: coleta macro passa a rodar antes do analytics (alimenta Score D e margem)
+
 ### Corrigido
 - `IPCA_ATUAL` estava em 3,81%; atualizado para 4,58% (IPCA 12 meses até 09/2026, SGS 13522). Adicionado `SELIC_META_REF` = 13,75% (SGS 432)
 - Score B penalizava prazo e não duration: o Renda+/Educa+ era medido pela última parcela (ex.: 58 anos no Renda+ 2065, contra ~46 de duration real) e o Tesouro Selic recebia penalidade de juros que não tem. A penalidade passa a usar `duration_risco` (duration modificada; zero no Selic)
