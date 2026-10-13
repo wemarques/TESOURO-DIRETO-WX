@@ -11,6 +11,10 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 - Colunas `duration_macaulay`, `duration_modificada`, `convexidade`, `var_pct_taxa_menos_1pp` e `var_pct_taxa_mais_1pp` na base analítica e no ranking
 - `tests/test_duration.py`: âncoras do vídeo de marcação a mercado, PUs publicados no centavo, VNA implícito comum a todos os títulos IPCA e backtest do Renda+ 2065 (23/01/2025 → 10/07/2025)
 
+- Ranking (Fase 2): colunas Duration, Duration mod., Convexidade, Δ PU se taxa −1pp / +1pp e Inflação implícita, com tooltips; ordenação por duration e por "ganho se taxa cair 1 p.p."; coluna Título fixa na rolagem horizontal
+- Inflação implícita (Fisher) dos títulos IPCA contra a curva prefixada interpolada na mesma duration — só dentro do alcance da curva (sem extrapolar)
+- `src/utils/nomes.py`: nomes curtos no padrão do Tesouro ("Renda+ 2065", "IPCA+ Juros 2060") no ranking e no gráfico
+
 ### Corrigido
 - Score B penalizava prazo e não duration: o Renda+/Educa+ era medido pela última parcela (ex.: 58 anos no Renda+ 2065, contra ~46 de duration real) e o Tesouro Selic recebia penalidade de juros que não tem. A penalidade passa a usar `duration_risco` (duration modificada; zero no Selic)
 

@@ -10,6 +10,7 @@ from src.utils.constants import DATA_ENRIQUECIDO, DATA_PROCESSED, DATA_OUTPUTS
 COLS_RISCO = [
     "duration_macaulay", "duration_modificada", "convexidade",
     "var_pct_taxa_menos_1pp", "var_pct_taxa_mais_1pp",
+    "taxa_nominal_equivalente", "inflacao_implicita",
 ]
 
 
@@ -32,6 +33,10 @@ def main():
     print("  → Calculando métricas...")
     from src.analytics.metricas import calcular_metricas
     df = calcular_metricas(df)
+
+    # 2b. Inflacao implicita (Fisher) dos titulos IPCA vs curva prefixada
+    from src.analytics.duration import calcular_inflacao_implicita
+    df = calcular_inflacao_implicita(df)
 
     # 3. Ajustar curvas NSS por grupo (apenas snapshot mais recente)
     print("  → Ajustando curvas Nelson-Siegel-Svensson...")
@@ -82,6 +87,7 @@ def main():
         "score_a", "score_b", "score_c",
         "duration_macaulay", "duration_modificada", "convexidade",
         "var_pct_taxa_menos_1pp", "var_pct_taxa_mais_1pp",
+        "taxa_nominal_equivalente", "inflacao_implicita",
     ]
     cols_existentes = [c for c in cols_dashboard if c in df.columns]
     df[cols_existentes].to_parquet(DATA_OUTPUTS / "base_analitica.parquet", index=False)

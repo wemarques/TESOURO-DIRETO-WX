@@ -15,6 +15,7 @@ from src.dashboard.dados import (
 from src.dashboard.layouts import NOMES_FAMILIA, summary_row_from_stats
 from src.dashboard.plotly_theme import CORES_FAMILIA
 from src.utils.constants import IPCA_ATUAL
+from src.utils.nomes import nome_curto
 
 MAPA_INDEXADOR = {
     "Tesouro Selic": "Selic",
@@ -44,6 +45,19 @@ def _formatar_moeda(v: float) -> str:
     if pd.isna(v):
         return "—"
     return f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+def _formatar_pct(v: float) -> str:
+    """Fracao como percentual com sinal. Ex: 0.544 -> '+54,4%'."""
+    if pd.isna(v):
+        return "—"
+    return f"{v * 100:+.1f}%".replace(".", ",")
+
+
+COLS_RISCO_RANKING = [
+    "duration_macaulay", "duration_modificada", "convexidade",
+    "var_pct_taxa_menos_1pp", "var_pct_taxa_mais_1pp", "inflacao_implicita",
+]
 
 
 def _info_row(label: str, value: str) -> html.Div:
@@ -291,6 +305,10 @@ def registrar_callbacks(app, estado: EstadoDados):
 
     TOOLTIPS_COLUNAS = {
         "tipo_titulo": "Nome da familia do titulo do Tesouro Direto",
+        "titulo_label": (
+            "Nome curto no padrao do Tesouro Direto. No Renda+ e no Educa+ o ano e o "
+            "inicio dos pagamentos, nao o vencimento (ex.: Renda+ 2065 vence em 2084)."
+        ),
         "indexador": (
             "Indice ao qual o rendimento esta atrelado. "
             "Prefixado = taxa fixa. Selic/IPCA/IGP-M = taxa + variacao do indice"
@@ -339,6 +357,34 @@ def registrar_callbacks(app, estado: EstadoDados):
         "posicao_global": (
             "Posicao no ranking geral - apenas informativo, "
             "nao use para decisao entre familias diferentes"
+        ),
+        "duration_macaulay": (
+            "Duration de Macaulay: prazo medio ponderado dos fluxos (cupons, parcelas "
+            "e principal), em anos. Nao e o prazo ate o vencimento: no Renda+ e no "
+            "Educa+ os pagamentos sao mensais e a duration fica bem abaixo do vencimento."
+        ),
+        "duration_modificada": (
+            "Quanto o preco varia, em %, para cada 1 p.p. de mudanca na taxa (1a ordem). "
+            "No Tesouro Selic mede a sensibilidade ao spread, nao a Selic: o risco de "
+            "juros do Selic e praticamente zero."
+        ),
+        "convexidade": (
+            "Correcao de 2a ordem: quanto maior, mais o ganho numa queda de taxa supera "
+            "a perda numa alta do mesmo tamanho. dPU/PU = -MD*di + 1/2*C*di^2"
+        ),
+        "var_menos_1pp_str": (
+            "Variacao exata do preco se a taxa cair 1 p.p. hoje (reprecificacao do "
+            "fluxo, ja com convexidade). E o ganho de marcacao a mercado de quem tem o titulo."
+        ),
+        "var_mais_1pp_str": (
+            "Variacao exata do preco se a taxa subir 1 p.p. hoje. Duration alta e faca "
+            "de dois gumes: o mesmo titulo que mais ganha na queda e o que mais perde na alta."
+        ),
+        "inflacao_implicita_str": (
+            "Inflacao implicita (Fisher) = (1 + taxa prefixada) / (1 + taxa real) - 1, "
+            "com a prefixada interpolada na mesma duration. Se o IPCA medio ficar acima "
+            "disso, o IPCA+ rende mais que o prefixado. So e calculada dentro do alcance "
+            "da curva prefixada (ate ~6 anos)."
         ),
         "disponivel_str": (
             "Se o titulo esta disponivel para compra hoje no Tesouro Direto. "
@@ -412,12 +458,19 @@ def registrar_callbacks(app, estado: EstadoDados):
         if familia != "TODAS":
             df = df[df["familia_normalizada"] == familia]
 
-        col_ordenar = score_col if ordenar_por == "score" else ordenar_por
-        df = df.sort_values(col_ordenar, ascending=False)
+        # Colunas de risco (v1.1.0) podem faltar ate o pipeline rodar de novo
+        for col in COLS_RISCO_RANKING:
+            if col not in df.columns:
+                df[col] = float("nan")
 
-        df["titulo_label"] = (
-            df["tipo_titulo"] + " " + df["data_vencimento"].dt.strftime("%Y")
-        )
+        col_ordenar = score_col if ordenar_por == "score" else ordenar_por
+        if col_ordenar not in df.columns:
+            col_ordenar = score_col
+        df = df.sort_values(col_ordenar, ascending=False, na_position="last")
+
+        df["titulo_label"] = [
+            nome_curto(t, v) for t, v in zip(df["tipo_titulo"], df["data_vencimento"])
+        ]
 
         score_label = SCORE_LABELS.get(score_col, score_col)
         fig = px.bar(
@@ -460,8 +513,14 @@ def registrar_callbacks(app, estado: EstadoDados):
         else:
             df["disponivel_str"] = "—"
 
+        df["var_menos_1pp_str"] = df["var_pct_taxa_menos_1pp"].apply(_formatar_pct)
+        df["var_mais_1pp_str"] = df["var_pct_taxa_mais_1pp"].apply(_formatar_pct)
+        df["inflacao_implicita_str"] = df["inflacao_implicita"].apply(
+            lambda v: "—" if pd.isna(v) else f"{v:.2f}%"
+        )
+
         colunas_tabela = [
-            ("tipo_titulo", "Titulo"),
+            ("titulo_label", "Titulo"),
             ("disponivel_str", "À venda"),
             ("indexador", "Indexador"),
             ("data_vencimento", "Vencimento"),
@@ -472,6 +531,12 @@ def registrar_callbacks(app, estado: EstadoDados):
             ("carry", "Carry"),
             ("rv_zscore", "RV z-score"),
             ("liquidez_norm", "Liquidez"),
+            ("duration_macaulay", "Duration (anos)"),
+            ("duration_modificada", "Duration mod."),
+            ("convexidade", "Convexidade"),
+            ("var_menos_1pp_str", "Δ PU se taxa −1pp"),
+            ("var_mais_1pp_str", "Δ PU se taxa +1pp"),
+            ("inflacao_implicita_str", "Inflação implícita"),
             (score_col, score_label),
             ("posicao_celula", "Pos. Celula"),
             ("posicao_global", "Pos. Global"),
@@ -488,6 +553,9 @@ def registrar_callbacks(app, estado: EstadoDados):
         df_tab["data_vencimento"] = df_tab["data_vencimento"].dt.strftime("%d/%m/%Y")
         for col in ["taxa_compra_manha", "carry", "rv_zscore", "liquidez_norm", score_col]:
             df_tab[col] = df_tab[col].round(4)
+        for col in ["duration_macaulay", "duration_modificada"]:
+            df_tab[col] = df_tab[col].round(2)
+        df_tab["convexidade"] = df_tab["convexidade"].round(1)
 
         return fig, df_tab.to_dict("records"), cols_dash, tooltip_header
 
