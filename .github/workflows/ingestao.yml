@@ -51,6 +51,11 @@ jobs:
       - name: Rodar analytics (scores + ranking)
         run: python scripts/rodar_analytics.py
 
+      # Selic/IPCA (SGS) e Focus (Olinda). Falha aqui nao bloqueia os dados do Tesouro.
+      - name: Coletar contexto macro (BCB)
+        continue-on-error: true
+        run: python scripts/rodar_macro.py
+
       - name: Commitar dados atualizados
         run: |
           git config user.name "github-actions[bot]"

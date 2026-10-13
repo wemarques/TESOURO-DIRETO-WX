@@ -9,6 +9,7 @@ from dash import Input, Output, html, no_update
 
 from src.analytics.duration import TIPOS_IPCA, TIPOS_NOMINAIS, decompor_retorno
 from src.analytics.simulador import matriz_cenarios, proximo_degrau_ir, simular
+from src.analytics.tese import avaliar_condicoes
 
 # Importacao registra o template plotly 'tdwx_dark' como padrao
 from src.dashboard import plotly_theme  # noqa: F401
@@ -942,7 +943,10 @@ def registrar_callbacks(app, estado: EstadoDados):
                 _info_row("PU compra", _formatar_moeda(
                     ultimo.get("pu_compra_manha", float("nan"))
                 )),
-                _info_row("IPCA atual (ref)", f"{IPCA_ATUAL:.2f}%"),
+                _info_row(
+                    "IPCA 12 meses",
+                    f"{((estado.macro or {}).get('ipca_12m') or {}).get('valor', IPCA_ATUAL):.2f}%",
+                ),
             ],
             className="tdwx-info-card",
         )
@@ -1227,13 +1231,77 @@ def registrar_callbacks(app, estado: EstadoDados):
     )
     def ajustar_indexador_simulador(titulo: str | None):
         tipo = titulo.split("||", 1)[0] if titulo else ""
+        macro = estado.macro or {}
+        ipca = (macro.get("focus_ipca_12m") or {}).get("valor") or (
+            (macro.get("ipca_12m") or {}).get("valor") or IPCA_ATUAL
+        )
+        selic = (macro.get("selic_meta") or {}).get("valor") or SELIC_META_REF
         if tipo in TIPOS_IPCA:
-            return IPCA_ATUAL, False, "IPCA projetado (% a.a.)"
+            return round(ipca, 2), False, "IPCA projetado (% a.a.)"
         if tipo == "Tesouro Selic":
-            return SELIC_META_REF, False, "Selic projetada (% a.a.)"
+            return round(selic, 2), False, "Selic projetada (% a.a.)"
         if tipo == "Tesouro IGPM+ com Juros Semestrais":
-            return IPCA_ATUAL, False, "IGP-M projetado (% a.a.)"
+            return round(ipca, 2), False, "IGP-M projetado (% a.a.)"
         return None, True, "Indexador (não se aplica ao prefixado)"
+
+    @app.callback(
+        Output("sim-condicoes", "children"),
+        Input("titulo-dropdown", "value"),
+    )
+    def atualizar_condicoes_tese(titulo: str | None):
+        if not titulo or "||" not in titulo:
+            return html.Div()
+        tipo, venc = titulo.split("||", 1)
+        h = estado.df_historico
+        df_tit = h[(h["tipo_titulo"] == tipo) & (h["data_vencimento"] == pd.Timestamp(venc))]
+        if tipo == "Tesouro Selic":
+            return html.P(
+                "Tesouro Selic não tem tese de marcação a mercado: o preço acompanha a "
+                "Selic diariamente e quase não oscila com a curva de juros.",
+                className="tdwx-sim-note",
+            )
+        condicoes = avaliar_condicoes(h, df_tit, estado.macro or {})
+        n_ok = sum(1 for c in condicoes if c.atendida)
+        n_aval = sum(1 for c in condicoes if c.atendida is not None)
+        icone = {True: ("✓", "ok"), False: ("✗", "nao"), None: ("—", "sem")}
+        linhas = [
+            html.Div(
+                [
+                    html.Span(
+                        icone[c.atendida][0],
+                        className=f"tdwx-cond-icone {icone[c.atendida][1]}",
+                    ),
+                    html.Div(
+                        [html.Div(c.nome, className="tdwx-cond-nome"),
+                         html.Div(c.detalhe, className="tdwx-cond-detalhe")]
+                    ),
+                ],
+                className="tdwx-cond-linha",
+            )
+            for c in condicoes
+        ]
+        fonte = (estado.macro or {}).get("focus_selic_fim_ano_seguinte", {}).get("fonte")
+        return html.Div(
+            [
+                html.Div(
+                    [
+                        html.Span("Condições para a tese de queda de taxa",
+                                  className="tdwx-cond-titulo"),
+                        html.Span(f"{n_ok} de {n_aval} atendidas", className="tdwx-cond-placar"),
+                    ],
+                    className="tdwx-cond-header",
+                ),
+                *linhas,
+                html.P(
+                    "Painel descritivo: mostra condições observáveis, não prevê a taxa nem "
+                    "recomenda compra. Duration alta é faca de dois gumes — o mesmo título "
+                    "que mais ganha na queda é o que mais perde se a taxa subir."
+                    + (" Focus/Selic: Banco Central." if fonte == "BCB" else ""),
+                    className="tdwx-cond-rodape",
+                ),
+            ],
+            className="tdwx-cond-card",
+        )
 
     @app.callback(
         Output("sim-resultado", "children"),

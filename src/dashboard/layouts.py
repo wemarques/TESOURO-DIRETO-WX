@@ -686,6 +686,7 @@ def bloco_simulador() -> html.Div:
                 "custódia de 0,20% a.a.",
                 className="tdwx-sim-subtitle",
             ),
+            html.Div(id="sim-condicoes"),
             html.Div(
                 [
                     html.Div(
