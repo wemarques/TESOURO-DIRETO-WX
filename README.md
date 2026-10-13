@@ -35,7 +35,20 @@ Consome dados históricos oficiais de preços e taxas do Tesouro Direto, aplica 
 |---|---|
 | [Tesouro Transparente (CKAN)](https://www.tesourotransparente.gov.br/ckan/organization/codip) | Primária |
 | [Tesouro Direto — Histórico](https://www.tesourodireto.com.br/produtos/dados-sobre-titulos/historico-de-precos-e-taxas) | Conferência |
+| [Tesouro Direto — Rendimento dos Títulos](https://www.tesourodireto.com.br/produtos/dados-sobre-titulos/rendimento-dos-titulos) | Títulos à venda (`config/titulos_ofertados.csv`) |
 | [ANBIMA — Precificação](https://www.anbima.com.br/data/files/A0/02/CC/70/8FEFC8104606BDC8B82BA2A8/Metodologias%20ANBIMA%20de%20Precificacao%20Titulos%20Publicos.pdf) | Metodológica |
+
+### Títulos disponíveis para compra
+
+O CKAN e a BRAPI publicam taxas também de títulos que hoje só aceitam resgate,
+então a lista do que está à venda vem de `config/titulos_ofertados.csv`.
+O "Melhor Título do Dia" só sugere títulos dessa lista e o ranking os marca na
+coluna **À venda**.
+
+Para atualizar quando o Tesouro mudar a oferta (em geral, na virada do ano):
+abra **Rendimento dos Títulos → Investir → Baixar Lista** no site do Tesouro
+Direto e substitua o arquivo pelo CSV baixado, sem editar. O dashboard relê a
+lista na próxima recarga, sem reiniciar.
 
 ## Setup rápido
 
