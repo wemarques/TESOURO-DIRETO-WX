@@ -163,7 +163,11 @@ def build_summary_stats(
     if df_fam.empty:
         return {"modo": "vazio", "total": 0, "familia": familia}
 
-    col_score = score_col if score_col in df_fam.columns else "score_a"
+    col_score = (
+        score_col
+        if score_col in df_fam.columns and df_fam[score_col].notna().any()
+        else "score_a"  # ex.: Score D nao existe para o Tesouro Selic
+    )
     df_ord = df_fam.sort_values(col_score, ascending=False, na_position="last")
     melhor_score_row = df_ord.iloc[0]
     maior_taxa_row = df_fam.loc[df_fam["taxa_compra_manha"].idxmax()]

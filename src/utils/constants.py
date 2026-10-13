@@ -131,6 +131,14 @@ PESOS_FORMULA_C = {
     "liquidez": 0.15,
 }
 
+# Score D — marcacao a mercado (so faz sentido sob tese explicita de queda de taxa)
+PESOS_FORMULA_D = {
+    "sensibilidade": 0.45,   # duration modificada normalizada no grupo amplo
+    "percentil_taxa": 0.30,  # taxa alta no proprio historico de 24 meses
+    "residuo_curva": 0.15,   # paga acima da curva NSS
+    "liquidez": 0.10,
+}
+
 
 # === Indicadores macro (valores de referencia, atualizar manualmente) ===
 # Referencias macro manuais (fonte: BCB/SGS). Substituidas por dados vivos na Fase 4.
