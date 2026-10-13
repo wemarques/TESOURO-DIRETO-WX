@@ -3,6 +3,18 @@
 Todas as alterações relevantes do projeto são documentadas aqui.
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
+## [2026-10-13]
+
+### Corrigido
+- "Melhor Título do Dia" sugeria títulos fora de venda (ex.: Tesouro Prefixado 2027, que só aceita resgate). CKAN e BRAPI publicam taxa de compra para todos os títulos, sem indicar disponibilidade
+- Objetivo "Médio prazo (2-5 anos)" aceitava títulos do bucket curto (ex.: vencimento em 3 meses). Cada objetivo passa a ter prazo mínimo (`prazo_min_anos`), respeitado também quando a cascata expande buckets
+
+### Adicionado
+- `config/titulos_ofertados.csv`: lista oficial de títulos à venda (download "Baixar Lista" do Tesouro Direto, aba Investir)
+- `src/utils/ofertados.py`: leitura da lista e coluna `disponivel_compra`, casando por tipo + vencimento (no Renda+/Educa+ o ano do nome não é o vencimento)
+- Coluna "À venda" no ranking e marcação "(só resgate)" no seletor de título individual
+- Testes `tests/test_ofertados.py`
+
 ## [2026-05-21]
 
 ### Corrigido

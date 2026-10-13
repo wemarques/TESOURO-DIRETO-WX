@@ -21,6 +21,7 @@ from src.utils.constants import (
     DATA_PROCESSED,
     DATA_RAW,
 )
+from src.utils.ofertados import carregar_ofertados, marcar_disponibilidade
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
@@ -215,6 +216,12 @@ class EstadoDados:
         df_ranking = calcular_variacao_e_pu(df_ranking, df_historico)
         df_calculadora = build_calculadora_dataset(df_historico)
 
+        # Disponibilidade para compra (lista oficial em config/titulos_ofertados.csv).
+        # Relida a cada recarga: trocar o CSV nao exige reiniciar o app.
+        ofertados = carregar_ofertados()
+        df_ranking = marcar_disponibilidade(df_ranking, ofertados)
+        df_calculadora = marcar_disponibilidade(df_calculadora, ofertados)
+
         ultima_ingestao = obter_ultima_ingestao()
         info_ingestao = {
             "data_ingestao": (
@@ -231,15 +238,21 @@ class EstadoDados:
         self.total_registros = len(df_historico)
         self.familias = sorted(df_ranking["familia_normalizada"].unique().tolist())
         self.titulos_unicos = sorted(df_historico["tipo_titulo"].unique().tolist())
-        # So titulos ofertados HOJE (snapshot = ranking_atual), nao o historico inteiro.
+        # Titulos do snapshot com vencimento futuro; os fora de venda ficam marcados como
+        # "so resgate" (ainda podem ser consultados por quem ja os possui).
+        _hoje = pd.Timestamp.today().normalize()
+        _vigentes = df_ranking[df_ranking["data_vencimento"] > _hoje]
         _det = (
-            df_ranking[["tipo_titulo", "data_vencimento"]]
-            .drop_duplicates()
+            _vigentes[["tipo_titulo", "data_vencimento", "disponivel_compra"]]
+            .drop_duplicates(["tipo_titulo", "data_vencimento"])
             .sort_values(["tipo_titulo", "data_vencimento"])
         )
         self.titulos_detalhados = [
             {
-                "label": f"{r.tipo_titulo} {pd.Timestamp(r.data_vencimento):%d/%m/%Y}",
+                "label": (
+                    f"{r.tipo_titulo} {pd.Timestamp(r.data_vencimento):%d/%m/%Y}"
+                    + ("" if r.disponivel_compra else " (só resgate)")
+                ),
                 "value": f"{r.tipo_titulo}||{pd.Timestamp(r.data_vencimento):%Y-%m-%d}",
             }
             for r in _det.itertuples(index=False)

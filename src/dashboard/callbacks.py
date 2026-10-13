@@ -74,27 +74,34 @@ def _stat_card(label: str, value: str, variant: str = "") -> html.Div:
 
 BUCKETS_ORDER = ["CURTO", "INTER", "LONGO", "ULTRA"]
 
-# Mapeamento objetivo -> familias permitidas e buckets ideais
+# Mapeamento objetivo -> familias permitidas, buckets ideais e prazo minimo.
+# prazo_min_anos vale em todos os niveis da cascata (inclusive quando os buckets
+# sao expandidos): um titulo de 3 meses nao atende "medio prazo (2-5 anos)".
 MAPA_OBJETIVO = {
     "reserva": {
         "familias": ["SELIC"],
         "buckets": ["CURTO", "INTER", "LONGO", "ULTRA"],
+        "prazo_min_anos": 0.0,
     },
     "curto": {
         "familias": ["SELIC", "PRE"],
         "buckets": ["CURTO"],
+        "prazo_min_anos": 0.0,
     },
     "medio": {
         "familias": ["PRE", "PRE_JS", "IPCA", "IPCA_JS"],
-        "buckets": ["INTER", "CURTO"],
+        "buckets": ["INTER"],
+        "prazo_min_anos": 2.0,
     },
     "longo": {
         "familias": ["IPCA", "IPCA_JS", "PRE_JS"],
         "buckets": ["LONGO", "INTER"],
+        "prazo_min_anos": 5.0,
     },
     "aposentadoria": {
         "familias": ["IPCA", "IPCA_JS", "RENDA", "EDUCA"],
         "buckets": ["ULTRA", "LONGO"],
+        "prazo_min_anos": 15.0,
     },
 }
 
@@ -187,6 +194,7 @@ def recomendar_titulo(
     config = MAPA_OBJETIVO.get(objetivo, MAPA_OBJETIVO["medio"])
     familias = config["familias"]
     buckets = config["buckets"]
+    prazo_min = config.get("prazo_min_anos", 0.0)
 
     score_col = MAPA_PERFIL_SCORE.get(perfil_risco, "score_a")
     # Se score_c selecionado mas todos NaN, usar score_a
@@ -195,7 +203,16 @@ def recomendar_titulo(
     ):
         score_col = "score_a"
 
+    # So titulos disponiveis para COMPRA entram na sugestao (todos os niveis).
+    # Sem a coluna (lista oficial ausente), mantem o comportamento anterior.
+    if "disponivel_compra" in df_ranking.columns:
+        df_disponiveis = df_ranking[df_ranking["disponivel_compra"].fillna(False).astype(bool)]
+        if not df_disponiveis.empty:
+            df_ranking = df_disponiveis
+
     df_base = df_ranking.copy()
+    if prazo_min > 0 and "anos_ate_vencimento" in df_base.columns:
+        df_base = df_base[df_base["anos_ate_vencimento"] >= prazo_min]
     badge_fallback: str | None = None
 
     # Filtro de cupom (com fallback se zerar)
@@ -323,6 +340,11 @@ def registrar_callbacks(app, estado: EstadoDados):
             "Posicao no ranking geral - apenas informativo, "
             "nao use para decisao entre familias diferentes"
         ),
+        "disponivel_str": (
+            "Se o titulo esta disponivel para compra hoje no Tesouro Direto. "
+            "'So resgate' = continua sendo negociado apenas para quem ja tem. "
+            "Fonte: lista oficial em config/titulos_ofertados.csv"
+        ),
         "celula_pequena_str": (
             "Marca titulos cuja celula analitica tem menos de 3 observacoes. "
             "Os scores ainda sao calculados, mas a comparacao tem menos "
@@ -431,9 +453,16 @@ def registrar_callbacks(app, estado: EstadoDados):
             ).fillna("")
         else:
             df["celula_pequena_str"] = ""
+        if "disponivel_compra" in df.columns:
+            df["disponivel_str"] = df["disponivel_compra"].map(
+                {True: "Sim", False: "Só resgate"}
+            ).fillna("—")
+        else:
+            df["disponivel_str"] = "—"
 
         colunas_tabela = [
             ("tipo_titulo", "Titulo"),
+            ("disponivel_str", "À venda"),
             ("indexador", "Indexador"),
             ("data_vencimento", "Vencimento"),
             ("bucket_prazo", "Bucket"),
